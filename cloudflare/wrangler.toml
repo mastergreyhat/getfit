@@ -1,0 +1,18 @@
+name = "getfit-nutrition-proxy"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+# Non-sensitive variables go here
+
+# Sensitive secret:
+# Set using: npx wrangler secret put GEMINI_API_KEY
+# Optional JWT Secret: npx wrangler secret put JWT_SECRET
+
+# Cloudflare D1 Database Binding:
+# 1. In Cloudflare dashboard, create a D1 database named "getfit-db"
+# 2. Bind it as "GETFIT_DB" to this worker in Settings -> Bindings -> D1 database
+[[d1_databases]]
+binding = "GETFIT_DB"
+database_name = "getfit-db"
+database_id = "getfit-db"

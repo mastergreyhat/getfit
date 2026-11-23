@@ -1,0 +1,54 @@
+# Built application files
+*.apk
+*.aab
+!apk/GetFit.apk
+
+# Gradle build cache & intermediate files
+.gradle/
+**/build/
+android/.gradle/
+android/app/build/
+android/build/
+
+# Local configuration file (contains SDK path on local machine)
+local.properties
+android/local.properties
+
+# Log files
+*.log
+
+# Android Studio & IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+.idea_modules/
+
+# Visual Studio Code
+.vscode/
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Python bytecode & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+
+# Antigravity / Gemini temporary workspace caches
+.gemini/
+
+#video assets
+promo/
+apk/*.apk
+promo/*.mp4
