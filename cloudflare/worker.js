@@ -190,7 +190,10 @@ async function handleSendOtp(request, env) {
   let deliveryError = null;
 
   if (env.GMAIL_RELAY_URL) {
-    const relaySecret = env.RELAY_SECRET || "getfit_relay_secret_token_2026";
+    if (!env.RELAY_SECRET) {
+      return jsonResponse({ error: "Email relay not configured" }, 500);
+    }
+    const relaySecret = env.RELAY_SECRET;
     try {
       const gasRes = await fetch(env.GMAIL_RELAY_URL, {
         method: "POST",
@@ -244,6 +247,9 @@ async function handleSendOtp(request, env) {
 }
 
 async function handleRegister(request, env) {
+  if (!env.JWT_SECRET || typeof env.JWT_SECRET !== "string" || env.JWT_SECRET.length < 32) {
+    return jsonResponse({ error: "Server not configured" }, 500);
+  }
   if (!env.DB) return dbMissingResponse();
   await ensureDbTables(env.DB);
 
@@ -320,6 +326,9 @@ async function handleRegister(request, env) {
 }
 
 async function handleLogin(request, env) {
+  if (!env.JWT_SECRET || typeof env.JWT_SECRET !== "string" || env.JWT_SECRET.length < 32) {
+    return jsonResponse({ error: "Server not configured" }, 500);
+  }
   if (!env.DB) return dbMissingResponse();
   await ensureDbTables(env.DB);
 
@@ -438,6 +447,11 @@ async function handleSyncDownload(request, env) {
 /* ========================================================================== */
 
 async function handleNutritionSearch(request, env, ctx, url) {
+  const authUser = await authenticateRequest(request, env);
+  if (!authUser) {
+    return jsonResponse({ error: "Unauthorized: Please log in to use AI nutrition search" }, 401);
+  }
+
   let query = url.searchParams.get("q") || url.searchParams.get("query");
   if (!query && request.method === "POST") {
     try {
@@ -660,9 +674,12 @@ function generateSalt() {
 }
 
 async function getJwtKey(secret) {
+  if (!secret || typeof secret !== "string" || secret.length < 32) {
+    return null;
+  }
   return await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(secret || "getfit_jwt_signing_secret_key_2026"),
+    new TextEncoder().encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign", "verify"]
@@ -690,6 +707,7 @@ async function signJwt(payload, secret) {
   const payloadB64 = base64UrlEncode(JSON.stringify(fullPayload));
   const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
   const key = await getJwtKey(secret);
+  if (!key) throw new Error("Server not configured");
   const signature = await crypto.subtle.sign("HMAC", key, data);
   const sigB64 = base64UrlEncode(String.fromCharCode(...new Uint8Array(signature)));
   return `${headerB64}.${payloadB64}.${sigB64}`;
@@ -697,11 +715,12 @@ async function signJwt(payload, secret) {
 
 async function verifyJwt(token, secret) {
   try {
+    const key = await getJwtKey(secret);
+    if (!key) return null;
     const parts = token.split(".");
     if (parts.length !== 3) return null;
     const [headerB64, payloadB64, sigB64] = parts;
     const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
-    const key = await getJwtKey(secret);
     const sigStr = base64UrlDecode(sigB64);
     const sigBytes = new Uint8Array(sigStr.length);
     for (let i = 0; i < sigStr.length; i++) sigBytes[i] = sigStr.charCodeAt(i);

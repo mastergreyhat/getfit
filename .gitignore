@@ -1,7 +1,7 @@
 # Built application files
 *.apk
 *.aab
-!apk/GetFit.apk
+apk/*.apk
 
 # Gradle build cache & intermediate files
 .gradle/
@@ -48,7 +48,13 @@ venv/
 # Antigravity / Gemini temporary workspace caches
 .gemini/
 
-#video assets
+# Test dumps & local backups
+GetFit_Full_Backup.json
+*.json.bak
+screen_*.png
+android/screen.png
+android/ui.xml
+
+# Video and promo assets
 promo/
-apk/*.apk
 promo/*.mp4

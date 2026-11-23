@@ -73,7 +73,7 @@ fun GfCard(
 
 /**
  * Hero Card variant: Like GfCard but with a faint radial accent glow in top-end corner
- * (accent at 6% alpha, blurred via Brush.radialGradient for maximum performance).
+ * (accent at 4% alpha, blurred via Brush.radialGradient for maximum performance).
  * Used at most once per screen.
  */
 @Composable
@@ -86,7 +86,7 @@ fun GfHeroCard(
 ) {
     val shape = RoundedCornerShape(cornerRadius)
     val baseSurface = GetFitTheme.colors.surface1
-    val accentGlow = GetFitTheme.colors.accent.copy(alpha = 0.06f)
+    val accentGlow = GetFitTheme.colors.accent.copy(alpha = 0.04f)
 
     Box(
         modifier = modifier

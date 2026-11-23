@@ -1,6 +1,8 @@
 package com.getfit.ui.screens
 
 import com.getfit.ui.theme.GetFitTheme
+import com.getfit.ui.theme.Dimens
+import com.getfit.ui.components.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -63,12 +65,7 @@ import com.getfit.data.MealSuggestion
 import com.getfit.data.entity.FoodItem
 import com.getfit.data.entity.FoodLog
 import com.getfit.ui.components.FoodItemCard
-import com.getfit.ui.components.MacroSummaryRow
 import com.getfit.ui.components.ModifyPastDateDialog
-import com.getfit.ui.theme.CaloriesOrange
-import com.getfit.ui.theme.CarbsAmber
-import com.getfit.ui.theme.FatRed
-import com.getfit.ui.theme.ProteinBlue
 import com.getfit.ui.theme.WaterBlue
 import com.getfit.ui.util.AppDateManager
 import com.getfit.ui.viewmodel.FoodUiState
@@ -255,6 +252,7 @@ fun FoodScreen(
     }
 
     Scaffold(
+        containerColor = GetFitTheme.colors.background,
         snackbarHost = {
             SnackbarHost(
                 hostState = snackbarHostState,
@@ -267,15 +265,14 @@ fun FoodScreen(
                     ) {
                         Surface(
                             shape = RoundedCornerShape(20.dp),
-                            color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.94f),
-                            contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                            color = GetFitTheme.colors.surface3,
+                            contentColor = GetFitTheme.colors.textPrimary,
                             shadowElevation = 6.dp,
-                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+                            border = BorderStroke(1.dp, GetFitTheme.colors.hairline)
                         ) {
                             Text(
                                 text = data.visuals.message,
                                 style = MaterialTheme.typography.bodySmall,
-
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 2,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -289,8 +286,9 @@ fun FoodScreen(
             if (selectedTab == 1) {
                 FloatingActionButton(
                     onClick = onNavigateToAddCustomFood,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = GetFitTheme.colors.accent,
+                    contentColor = GetFitTheme.colors.onAccent,
+                    shape = CircleShape
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Custom Food")
                 }
@@ -302,30 +300,17 @@ fun FoodScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Tab Row
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = GetFitTheme.colors.surface1,
-                contentColor = GetFitTheme.colors.accent,
-                divider = { Divider(color = GetFitTheme.colors.hairline) }
+            // Pinned Segmented Control
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dimens.screenGutter, vertical = Dimens.sm)
             ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { viewModel.selectTab(index) },
-                        selectedContentColor = GetFitTheme.colors.accent,
-                        unselectedContentColor = GetFitTheme.colors.textSecondary,
-                        text = {
-                            Text(
-                                text = title,
-                                fontWeight = if (selectedTab == index) FontWeight.SemiBold else FontWeight.Normal,
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                        }
-                    )
-                }
+                GfSegmentedControl(
+                    items = tabs,
+                    selectedIndex = selectedTab,
+                    onSelect = viewModel::selectTab
+                )
             }
 
             when (selectedTab) {
@@ -403,7 +388,7 @@ fun normalizeMealType(rawType: String?): String {
 }
 
 /**
- * Tab 0: MyFitnessPal-Style Daily Food Diary
+ * Tab 0: Daily Food Diary (CRED / Apple TV style)
  */
 @Composable
 private fun MyFitnessPalDiaryTabContent(
@@ -420,7 +405,11 @@ private fun MyFitnessPalDiaryTabContent(
 ) {
     val calorieTarget = uiState.userProfile.dailyCalorieTarget.toDouble().coerceAtLeast(1000.0)
     val caloriesConsumed = uiState.totalCalories
-    val remainingCalories = (calorieTarget - caloriesConsumed).coerceAtLeast(0.0)
+    val isOverGoal = caloriesConsumed > calorieTarget
+    val diffCalories = if (isOverGoal) (caloriesConsumed - calorieTarget) else (calorieTarget - caloriesConsumed)
+    val heroNumber = diffCalories.toInt()
+    val heroLabel = if (isOverGoal) "kcal over" else "kcal left"
+    val heroColor = if (isOverGoal) GetFitTheme.colors.warning else GetFitTheme.colors.textPrimary
 
     val standardMeals = remember { listOf("Breakfast", "Lunch", "Dinner", "Snacks") }
     val groupedLogs = remember(uiState.todayLogs) {
@@ -430,329 +419,356 @@ private fun MyFitnessPalDiaryTabContent(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-        contentPadding = PaddingValues(bottom = 32.dp)
+            .gfBottomBarPadding(),
+        contentPadding = PaddingValues(
+            start = Dimens.screenGutter,
+            end = Dimens.screenGutter,
+            top = Dimens.xs,
+            bottom = Dimens.xl
+        ),
+        verticalArrangement = Arrangement.spacedBy(Dimens.xxl)
     ) {
-        // 1. Date Navigation Bar
+        // 1. Date Navigation Bar: compact centered row with chevrons, date in titleMedium, no surrounding box
         item(key = "diary_date_nav") {
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onPreviousDate) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous Day", modifier = Modifier.size(18.dp))
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onOpenCalendarPicker() }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CalendarMonth,
-                            contentDescription = "Pick Date",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = uiState.dateDisplayLabel,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            softWrap = false,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    IconButton(
-                        onClick = onNextDate,
-                        enabled = AppDateManager.canGoNext()
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = "Next Day",
-                            modifier = Modifier.size(18.dp),
-                            tint = if (AppDateManager.canGoNext()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                        )
-                    }
-                }
-            }
-        }
-
-        // 2. MyFitnessPal Signature Calorie Equation Banner Card
-        item(key = "diary_calorie_equation") {
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "CALORIES REMAINING",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 1.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        text = "${remainingCalories.toInt()}",
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceAround,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = "${calorieTarget.toInt()}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                            Text(text = "Goal", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Text(text = "−", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = "${caloriesConsumed.toInt()}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                            Text(text = "Food", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Text(text = "=", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = "${remainingCalories.toInt()}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                            Text(text = "Remaining", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-
-                    Divider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
-
-                    // Macro summary
-                    MacroSummaryRow(
-                        proteinCurrent = uiState.totalProtein.toFloat(),
-                        proteinTarget = uiState.userProfile.dailyProteinTarget.toFloat().coerceAtLeast(100f),
-                        carbsCurrent = uiState.totalCarbs.toFloat(),
-                        carbsTarget = uiState.userProfile.dailyCarbsTarget.toFloat().coerceAtLeast(150f),
-                        fatCurrent = uiState.totalFat.toFloat(),
-                        fatTarget = uiState.userProfile.dailyFatTarget.toFloat().coerceAtLeast(40f)
-                    )
-                }
-            }
-        }
-
-        // 2b. One-Click Copy Yesterday's Meals
-        item(key = "diary_copy_yesterday") {
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onCopyYesterdayMeals() }
+                    .padding(vertical = Dimens.xs),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(
+                    onClick = onPreviousDate,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ChevronLeft,
+                        contentDescription = "Previous Day",
+                        tint = GetFitTheme.colors.textSecondary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
                 Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
+                    modifier = Modifier
+                        .pressable(onClick = onOpenCalendarPicker)
+                        .padding(horizontal = Dimens.md, vertical = Dimens.xs)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarMonth,
+                        contentDescription = "Pick Date",
+                        tint = GetFitTheme.colors.accent,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = uiState.dateDisplayLabel,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GetFitTheme.colors.textPrimary,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+
+                IconButton(
+                    onClick = onNextDate,
+                    enabled = AppDateManager.canGoNext(),
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = "Next Day",
+                        tint = if (AppDateManager.canGoNext()) GetFitTheme.colors.textSecondary else GetFitTheme.colors.textTertiary.copy(alpha = 0.35f),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
+
+        // 2. Calories Hero Card: GfHeroCard with GfOverline, GfBigNumber hero = true (52sp), 3-col equation, and MacroStat row
+        item(key = "diary_calorie_hero") {
+            GfHeroCard(modifier = Modifier.fillMaxWidth()) {
+                GfOverline(text = "CALORIES REMAINING")
+                Spacer(modifier = Modifier.height(Dimens.sm))
+                GfBigNumber(
+                    value = heroNumber,
+                    unit = heroLabel,
+                    hero = true,
+                    color = heroColor,
+                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 52.sp, lineHeight = 56.sp)
+                )
+                Spacer(modifier = Modifier.height(Dimens.lg))
+
+                // Quiet three-column row: Goal, Food, Remaining/Over
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "${calorieTarget.toInt()}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GetFitTheme.colors.textPrimary
+                        )
+                        Text(
+                            text = "Goal",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GetFitTheme.colors.textSecondary
+                        )
+                    }
+                    Text(
+                        text = "−",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = GetFitTheme.colors.textTertiary
+                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "${caloriesConsumed.toInt()}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GetFitTheme.colors.textPrimary
+                        )
+                        Text(
+                            text = "Food",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GetFitTheme.colors.textSecondary
+                        )
+                    }
+                    Text(
+                        text = "=",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = GetFitTheme.colors.textTertiary
+                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "$heroNumber",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = heroColor
+                        )
+                        Text(
+                            text = if (isOverGoal) "Over" else "Remaining",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isOverGoal) GetFitTheme.colors.warning else GetFitTheme.colors.textSecondary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Dimens.lg))
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                        .height(0.5.dp)
+                        .background(GetFitTheme.colors.hairline)
+                )
+                Spacer(modifier = Modifier.height(Dimens.lg))
+
+                // Shared MacroStat row (Protein, Carbs, Fat)
+                val proteinTarget = uiState.userProfile.dailyProteinTarget.toFloat().coerceAtLeast(100f)
+                val carbsTarget = uiState.userProfile.dailyCarbsTarget.toFloat().coerceAtLeast(150f)
+                val fatTarget = uiState.userProfile.dailyFatTarget.toFloat().coerceAtLeast(40f)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.lg)
+                ) {
+                    MacroStat(
+                        modifier = Modifier.weight(1f),
+                        label = "Protein",
+                        current = uiState.totalProtein.toFloat(),
+                        target = proteinTarget,
+                        color = GetFitTheme.colors.protein
+                    )
+                    MacroStat(
+                        modifier = Modifier.weight(1f),
+                        label = "Carbs",
+                        current = uiState.totalCarbs.toFloat(),
+                        target = carbsTarget,
+                        color = GetFitTheme.colors.carbs
+                    )
+                    MacroStat(
+                        modifier = Modifier.weight(1f),
+                        label = "Fat",
+                        current = uiState.totalFat.toFloat(),
+                        target = fatTarget,
+                        color = GetFitTheme.colors.fat
+                    )
+                }
+            }
+        }
+
+        // 3. One-Click Copy Yesterday's Meals: slim row styled like GfSecondaryButton, no white border
+        item(key = "diary_copy_yesterday") {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pressable(onClick = onCopyYesterdayMeals)
+                    .clip(CircleShape)
+                    .background(GetFitTheme.colors.surface2)
+                    .border(1.dp, GetFitTheme.colors.hairline, CircleShape)
+                    .padding(horizontal = Dimens.lg, vertical = Dimens.md),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.weight(1f)
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                     ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.History,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                        Column {
-                            Text(
-                                text = "Log Yesterday's Same Plan",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Copy yesterday's meals to this date",
-                                style = MaterialTheme.typography.bodySmall,
-
-                                maxLines = 1,
-                                softWrap = false,
-                                overflow = TextOverflow.Ellipsis,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = null,
+                            tint = GetFitTheme.colors.accent,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "Log Yesterday's Same Plan",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GetFitTheme.colors.textPrimary
+                        )
                     }
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Copy Yesterday",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Copy Yesterday",
+                        tint = GetFitTheme.colors.accent,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
         }
 
-        // 3. Meal Category Cards (Breakfast, Lunch, Dinner, Snacks)
+        // 4. Meal Category Cards (Breakfast, Lunch, Dinner, Snacks)
         standardMeals.forEach { mealType ->
             val logs = groupedLogs[mealType] ?: emptyList()
             val mealCals = logs.sumOf { it.totalCalories }.toInt()
-            val mealP = logs.sumOf { it.totalProtein }.toInt()
 
             item(key = "diary_meal_$mealType") {
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                GfCard(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Header row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = Dimens.sm)
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(end = 8.dp)
-                            ) {
-                                Text(
-                                    text = mealType,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "$mealCals kcal",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                                    modifier = Modifier.clickable { onQuickAddClick(mealType) }
-                                ) {
-                                    Text(
-                                        text = "+ Quick",
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        softWrap = false
-                                    )
-                                }
-
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.clickable { onAddFoodClick(mealType) }
-                                ) {
-                                    Text(
-                                        text = "+ ADD FOOD",
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        color = MaterialTheme.colorScheme.onPrimary
-                                    )
-                                }
-                            }
+                            Text(
+                                text = mealType,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = GetFitTheme.colors.textPrimary
+                            )
+                            Text(
+                                text = "$mealCals kcal",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = GetFitTheme.colors.textSecondary
+                            )
                         }
 
-                        // List of logged items in this meal
-                        if (logs.isEmpty()) {
-                            Text(
-                                text = "No food logged for $mealType yet.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.padding(vertical = 4.dp)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            GfTextButton(
+                                text = "+ Quick",
+                                onClick = { onQuickAddClick(mealType) },
+                                color = GetFitTheme.colors.textSecondary
                             )
-                        } else {
-                            Divider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
-                            logs.forEach { log ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = log.foodName,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = "${log.totalCalories.toInt()} kcal • P:${log.totalProtein.toInt()}g • C:${log.totalCarbs.toInt()}g • F:${log.totalFat.toInt()}g",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .pressable(onClick = { onAddFoodClick(mealType) })
+                                    .clip(CircleShape)
+                                    .background(GetFitTheme.colors.accent),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Add food to $mealType",
+                                    tint = GetFitTheme.colors.onAccent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
 
+                    if (logs.isEmpty()) {
+                        Spacer(modifier = Modifier.height(Dimens.md))
+                        Text(
+                            text = "No food logged for $mealType yet.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GetFitTheme.colors.textTertiary
+                        )
+                    } else {
+                        logs.forEach { log ->
+                            Spacer(modifier = Modifier.height(Dimens.md))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(0.5.dp)
+                                    .background(GetFitTheme.colors.hairline)
+                            )
+                            Spacer(modifier = Modifier.height(Dimens.md))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = Dimens.sm)
+                                ) {
+                                    Text(
+                                        text = log.foodName,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = GetFitTheme.colors.textPrimary
+                                    )
+                                    val servingDesc = if (log.servingSize > 1.0) {
+                                        "${(log.quantity * log.servingSize).toInt()}g • P:${log.totalProtein.toInt()}g C:${log.totalCarbs.toInt()}g F:${log.totalFat.toInt()}g"
+                                    } else {
+                                        "${log.quantity.toInt()} serving • P:${log.totalProtein.toInt()}g C:${log.totalCarbs.toInt()}g F:${log.totalFat.toInt()}g"
+                                    }
+                                    Text(
+                                        text = servingDesc,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = GetFitTheme.colors.textSecondary
+                                    )
+                                }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
+                                ) {
+                                    Text(
+                                        text = "${log.totalCalories.toInt()} kcal",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontFeatureSettings = "tnum"
+                                        ),
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = GetFitTheme.colors.textPrimary
+                                    )
                                     IconButton(
                                         onClick = { onDeleteLog(log) },
-                                        modifier = Modifier.size(24.dp)
+                                        modifier = Modifier.size(28.dp)
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Close,
                                             contentDescription = "Delete item",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                            modifier = Modifier.size(14.dp)
+                                            tint = GetFitTheme.colors.textTertiary,
+                                            modifier = Modifier.size(16.dp)
                                         )
                                     }
                                 }
@@ -763,154 +779,147 @@ private fun MyFitnessPalDiaryTabContent(
             }
         }
 
-        // 4. Workout / Training Completed Card (Tied to selected date)
+        // 5. Workout / Training Completed Card (Tied to selected date)
         item(key = "diary_workout_section") {
             val workoutLogs = uiState.dateWorkoutLogs
             val groupedWorkouts = remember(workoutLogs) {
                 workoutLogs.groupBy { it.exerciseName }
             }
 
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(
-                    1.dp,
-                    if (groupedWorkouts.isNotEmpty()) GetFitTheme.colors.success.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outline
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+            GfCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.FitnessCenter,
-                                contentDescription = null,
-                                tint = if (groupedWorkouts.isNotEmpty()) GetFitTheme.colors.success else MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
+                        Icon(
+                            imageVector = Icons.Default.FitnessCenter,
+                            contentDescription = null,
+                            tint = if (groupedWorkouts.isNotEmpty()) GetFitTheme.colors.success else GetFitTheme.colors.accent,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Exercise & Training",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = GetFitTheme.colors.textPrimary
                             )
-                            Column {
-                                Text(
-                                    text = "Exercise & Training",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = if (groupedWorkouts.isNotEmpty()) {
-                                        "${groupedWorkouts.size} exercises • ${workoutLogs.size} sets completed"
-                                    } else {
-                                        "No workouts logged for this day"
-                                    },
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        if (groupedWorkouts.isNotEmpty()) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = GetFitTheme.colors.success.copy(alpha = 0.15f),
-                                border = BorderStroke(0.5.dp, GetFitTheme.colors.success.copy(alpha = 0.35f))
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = GetFitTheme.colors.success,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Text(
-                                        text = "Trained",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = GetFitTheme.colors.success
-                                    )
-                                }
-                            }
+                            Text(
+                                text = if (groupedWorkouts.isNotEmpty()) {
+                                    "${groupedWorkouts.size} exercises • ${workoutLogs.size} sets completed"
+                                } else {
+                                    "No workouts logged for this day"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GetFitTheme.colors.textSecondary
+                            )
                         }
                     }
 
-                    if (groupedWorkouts.isEmpty()) {
-                        Text(
-                            text = "No workouts logged for this day.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                    } else {
-                        Divider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
-                        groupedWorkouts.forEach { (exName, sets) ->
+                    if (groupedWorkouts.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(GetFitTheme.colors.success.copy(alpha = 0.15f))
+                                .border(1.dp, GetFitTheme.colors.success.copy(alpha = 0.35f), CircleShape)
+                                .padding(horizontal = Dimens.sm, vertical = Dimens.xs)
+                        ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.CheckCircle,
-                                            contentDescription = "Completed",
-                                            tint = GetFitTheme.colors.success,
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                        Text(
-                                            text = exName,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                    val setSummaries = remember(sets) {
-                                        val allSameWeight = sets.all { it.weight == sets.first().weight }
-                                        val allSameReps = sets.all { it.reps == sets.first().reps }
-                                        if (allSameWeight && allSameReps && sets.isNotEmpty()) {
-                                            "${sets.size} sets × ${sets.first().weight}kg (${sets.first().reps} reps)"
-                                        } else {
-                                            val maxWeight = sets.maxOfOrNull { it.weight } ?: 0.0
-                                            "${sets.size} sets • Top ${maxWeight}kg"
-                                        }
-                                    }
-                                    Text(
-                                        text = setSummaries,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        overflow = TextOverflow.Ellipsis,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = GetFitTheme.colors.success,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = "Trained",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GetFitTheme.colors.success
+                                )
+                            }
+                        }
+                    }
+                }
 
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = GetFitTheme.colors.success.copy(alpha = 0.12f)
+                if (groupedWorkouts.isEmpty()) {
+                    Spacer(modifier = Modifier.height(Dimens.sm))
+                    Text(
+                        text = "No workouts logged for this day.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GetFitTheme.colors.textTertiary
+                    )
+                } else {
+                    groupedWorkouts.forEach { (exName, sets) ->
+                        Spacer(modifier = Modifier.height(Dimens.md))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(0.5.dp)
+                                .background(GetFitTheme.colors.hairline)
+                        )
+                        Spacer(modifier = Modifier.height(Dimens.md))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = Dimens.sm)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
                                 ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Completed",
+                                        tint = GetFitTheme.colors.success,
+                                        modifier = Modifier.size(15.dp)
+                                    )
                                     Text(
-                                        text = "${sets.size} sets ✓",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = GetFitTheme.colors.success,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        text = exName,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = GetFitTheme.colors.textPrimary
                                     )
                                 }
+                                val setSummaries = remember(sets) {
+                                    val allSameWeight = sets.all { it.weight == sets.first().weight }
+                                    val allSameReps = sets.all { it.reps == sets.first().reps }
+                                    if (allSameWeight && allSameReps && sets.isNotEmpty()) {
+                                        "${sets.size} sets × ${sets.first().weight}kg (${sets.first().reps} reps)"
+                                    } else {
+                                        val maxWeight = sets.maxOfOrNull { it.weight } ?: 0.0
+                                        "${sets.size} sets • Top ${maxWeight}kg"
+                                    }
+                                }
+                                Text(
+                                    text = setSummaries,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = GetFitTheme.colors.textSecondary
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(Dimens.xs))
+                                    .background(GetFitTheme.colors.success.copy(alpha = 0.12f))
+                                    .padding(horizontal = Dimens.sm, vertical = Dimens.xs)
+                            ) {
+                                Text(
+                                    text = "${sets.size} sets ✓",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GetFitTheme.colors.success
+                                )
                             }
                         }
                     }
@@ -918,116 +927,76 @@ private fun MyFitnessPalDiaryTabContent(
             }
         }
 
-        // 5. Water Intake Card (Clean SaaS style directly after Snacks & Training)
+        // 6. Water Intake Card (Clean SaaS style directly after Snacks & Training)
         item(key = "diary_water_intake") {
             val waterTarget = uiState.userProfile.dailyWaterTarget.coerceAtLeast(1000)
             val currentWater = uiState.todayWaterMl
             val waterPct = ((currentWater.toFloat() / waterTarget.toFloat()) * 100).toInt().coerceAtMost(100)
             val progressFraction = (currentWater.toFloat() / waterTarget.toFloat()).coerceIn(0f, 1f)
 
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+            GfCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.WaterDrop,
-                                contentDescription = null,
-                                tint = WaterBlue,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Column {
-                                Text(
-                                    text = "WATER INTAKE",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "$currentWater / $waterTarget ml ($waterPct%)",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = WaterBlue.copy(alpha = 0.12f),
-                            border = BorderStroke(1.dp, WaterBlue.copy(alpha = 0.3f))
-                        ) {
+                        Icon(
+                            imageVector = Icons.Default.WaterDrop,
+                            contentDescription = null,
+                            tint = WaterBlue,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column {
+                            GfOverline(text = "WATER INTAKE")
                             Text(
-                                text = "Goal: ${waterTarget}ml",
-                                style = MaterialTheme.typography.labelSmall,
+                                text = "$currentWater / $waterTarget ml ($waterPct%)",
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = WaterBlue,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                color = GetFitTheme.colors.textPrimary
                             )
                         }
                     }
-
-                    LinearProgressIndicator(
-                        progress = progressFraction,
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)),
-                        color = WaterBlue,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            .clip(CircleShape)
+                            .background(WaterBlue.copy(alpha = 0.12f))
+                            .border(1.dp, WaterBlue.copy(alpha = 0.3f), CircleShape)
+                            .padding(horizontal = Dimens.md, vertical = Dimens.xs)
                     ) {
-                        OutlinedButton(
-                            onClick = { onLogWater(250) },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
-                        ) {
-                            Text("+250 ml", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
-                        }
-                        OutlinedButton(
-                            onClick = { onLogWater(500) },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
-                        ) {
-                            Text("+500 ml", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
-                        }
-                        OutlinedButton(
-                            onClick = { onLogWater(1000) },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
-                        ) {
-                            Text("+1000 ml", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
-                        }
-                        OutlinedButton(
-                            onClick = { onLogWater(-250) },
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                        ) {
-                            Text("-250", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
-                        }
+                        Text(
+                            text = "Goal: ${waterTarget}ml",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = WaterBlue
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Dimens.md))
+
+                GfProgressBar(
+                    progress = progressFraction,
+                    color = WaterBlue
+                )
+
+                Spacer(modifier = Modifier.height(Dimens.md))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
+                ) {
+                    val waterActions = listOf(250 to "+250 ml", 500 to "+500 ml", 1000 to "+1000 ml", -250 to "-250")
+                    waterActions.forEach { (delta, label) ->
+                        GfChip(
+                            text = label,
+                            selected = false,
+                            onClick = { onLogWater(delta) },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
@@ -1062,68 +1031,34 @@ private fun LogFoodTabContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(horizontal = Dimens.screenGutter, vertical = Dimens.sm),
+        verticalArrangement = Arrangement.spacedBy(Dimens.md)
     ) {
-        // Search Bar (Name Search)
-        OutlinedTextField(
-            value = textFieldValue,
-            onValueChange = { newValue ->
-                textFieldValue = newValue
-                onSearchQueryChange(newValue.text)
+        // Search Bar with GfTextField
+        GfTextField(
+            value = textFieldValue.text,
+            onValueChange = { newText ->
+                textFieldValue = TextFieldValue(newText, TextRange(newText.length))
+                onSearchQueryChange(newText)
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onPreviewKeyEvent { keyEvent ->
-                    if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Backspace) {
-                        val current = textFieldValue.text
-                        val selection = textFieldValue.selection
-                        if (current.isNotEmpty()) {
-                            val (newText, newPos) = if (!selection.collapsed) {
-                                val start = selection.min
-                                val end = selection.max
-                                Pair(current.removeRange(start, end), start)
-                            } else if (selection.start > 0) {
-                                val pos = selection.start
-                                Pair(current.removeRange(pos - 1, pos), pos - 1)
-                            } else {
-                                Pair(current, 0)
-                            }
-                            if (newText != current) {
-                                textFieldValue = TextFieldValue(newText, TextRange(newPos))
-                                onSearchQueryChange(newText)
-                                return@onPreviewKeyEvent true
-                            }
-                        }
-                    }
-                    false
-                },
-            placeholder = {
-                Text(
-                    text = "Search foods...",
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Ellipsis
-                )
-            },
-            leadingIcon = {
-                Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(18.dp))
-            },
-            trailingIcon = {
-                if (textFieldValue.text.isNotEmpty()) {
+            placeholder = "Search foods...",
+            leadingIcon = Icons.Default.Search,
+            trailingIcon = if (textFieldValue.text.isNotEmpty()) {
+                {
                     IconButton(onClick = {
                         textFieldValue = TextFieldValue("", TextRange.Zero)
                         onSearchQueryChange("")
                     }) {
-                        Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp))
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Clear",
+                            tint = GetFitTheme.colors.textSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                 }
-            },
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Text,
-                imeAction = ImeAction.Search
-            ),
+            } else null,
+            imeAction = ImeAction.Search,
             keyboardActions = KeyboardActions(
                 onSearch = {
                     focusManager.clearFocus()
@@ -1132,62 +1067,54 @@ private fun LogFoodTabContent(
                     }
                 }
             ),
-            singleLine = true,
-            shape = RoundedCornerShape(8.dp)
+            modifier = Modifier.fillMaxWidth()
         )
 
-        // Category Filter Chips
+        // Category Filter Chips with GfChipRow
         if (uiState.categories.isNotEmpty()) {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(uiState.categories, key = { it }) { category ->
-                    FilterChip(
-                        selected = uiState.selectedCategory == category,
-                        onClick = { onCategorySelect(category) },
-                        label = { Text(category, style = MaterialTheme.typography.labelSmall) }
-                    )
-                }
-            }
+            GfChipRow(
+                items = uiState.categories,
+                selectedItem = uiState.selectedCategory,
+                onItemSelected = onCategorySelect,
+                contentPadding = PaddingValues(0.dp)
+            )
         }
 
         // Typo correction suggestion pill
         if (!uiState.didYouMeanSuggestion.isNullOrBlank()) {
-            Surface(
-                onClick = {
-                    val suggestion = uiState.didYouMeanSuggestion
-                    if (!suggestion.isNullOrBlank()) {
-                        textFieldValue = TextFieldValue(suggestion, TextRange(suggestion.length))
-                        onSearchQueryChange(suggestion)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pressable {
+                        val suggestion = uiState.didYouMeanSuggestion
+                        if (!suggestion.isNullOrBlank()) {
+                            textFieldValue = TextFieldValue(suggestion, TextRange(suggestion.length))
+                            onSearchQueryChange(suggestion)
+                        }
                     }
-                },
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
-                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(Dimens.sm))
+                    .background(GetFitTheme.colors.surface2)
+                    .border(1.dp, GetFitTheme.colors.accent.copy(alpha = 0.4f), RoundedCornerShape(Dimens.sm))
+                    .padding(horizontal = Dimens.md, vertical = Dimens.sm)
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Default.Lightbulb,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = GetFitTheme.colors.accent
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(Dimens.sm))
                     Text(
                         text = "Did you mean: ",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GetFitTheme.colors.textSecondary
                     )
                     Text(
                         text = uiState.didYouMeanSuggestion,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GetFitTheme.colors.accent,
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Ellipsis
@@ -1198,19 +1125,17 @@ private fun LogFoodTabContent(
 
         // Live AI Search action banner when query is present
         if (uiState.searchQuery.isNotBlank()) {
-            Card(
+            GfCard(
                 onClick = {
                     if (!uiState.isSearchingOnline) {
                         onSearchOnline(uiState.searchQuery)
                     }
                 },
-                shape = RoundedCornerShape(10.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(Dimens.md)
             ) {
                 Row(
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (uiState.isSearchingOnline) {
@@ -1228,33 +1153,33 @@ private fun LogFoodTabContent(
                             Icons.Default.AutoAwesome,
                             contentDescription = null,
                             modifier = Modifier
-                                .size(18.dp)
+                                .size(20.dp)
                                 .alpha(iconAlpha),
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = GetFitTheme.colors.accent
                         )
                     } else {
                         Icon(
                             Icons.Default.AutoAwesome,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.primary
+                            modifier = Modifier.size(20.dp),
+                            tint = GetFitTheme.colors.accent
                         )
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(Dimens.md))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = if (uiState.isSearchingOnline) "Analyzing recipe & calculating macros with AI..." else "Search '${uiState.searchQuery}' with AI",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GetFitTheme.colors.accent,
                             maxLines = 1,
                             softWrap = false,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = if (uiState.isSearchingOnline) "Querying AI nutritionist & verified food data" else "Instant lab-grade macros for any dish, recipe, or brand",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GetFitTheme.colors.textSecondary,
                             maxLines = 1,
                             softWrap = false,
                             overflow = TextOverflow.Ellipsis
@@ -1268,18 +1193,19 @@ private fun LogFoodTabContent(
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(bottom = 80.dp)
+                .weight(1f)
+                .gfBottomBarPadding(),
+            verticalArrangement = Arrangement.spacedBy(Dimens.sm),
+            contentPadding = PaddingValues(bottom = Dimens.lg)
         ) {
             if (uiState.onlineSearchResults.isNotEmpty()) {
                 item(key = "header_online_results") {
                     Text(
                         text = "AI & Live Online Results (${uiState.onlineSearchResults.size})",
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(vertical = 4.dp),
+                        fontWeight = FontWeight.SemiBold,
+                        color = GetFitTheme.colors.accent,
+                        modifier = Modifier.padding(vertical = Dimens.xs),
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Ellipsis
@@ -1300,8 +1226,9 @@ private fun LogFoodTabContent(
                         Text(
                             text = "Local Matches",
                             style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                            fontWeight = FontWeight.SemiBold,
+                            color = GetFitTheme.colors.textPrimary,
+                            modifier = Modifier.padding(top = Dimens.sm, bottom = Dimens.xs),
                             maxLines = 1,
                             softWrap = false,
                             overflow = TextOverflow.Ellipsis
@@ -1323,27 +1250,23 @@ private fun LogFoodTabContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .fillParentMaxHeight(0.6f)
-                            .padding(horizontal = 4.dp),
+                            .padding(horizontal = Dimens.xs),
                         contentAlignment = Alignment.Center
                     ) {
-                        Card(
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+                        GfCard(modifier = Modifier.fillMaxWidth()) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 20.dp, vertical = 24.dp),
+                                    .padding(vertical = Dimens.lg),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Icon(
                                     imageVector = if (uiState.onlineSearchError == "No Internet Connection") Icons.Default.WifiOff else Icons.Default.SearchOff,
                                     contentDescription = null,
                                     modifier = Modifier.size(36.dp),
-                                    tint = if (uiState.onlineSearchError == "No Internet Connection") MaterialTheme.colorScheme.error.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                    tint = if (uiState.onlineSearchError == "No Internet Connection") GetFitTheme.colors.danger else GetFitTheme.colors.textTertiary
                                 )
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(Dimens.sm))
                                 Text(
                                     text = if (uiState.onlineSearchError != null) {
                                         uiState.onlineSearchError
@@ -1352,13 +1275,13 @@ private fun LogFoodTabContent(
                                     } else {
                                         "No food items found"
                                     },
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = if (uiState.onlineSearchError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                                    color = if (uiState.onlineSearchError != null) GetFitTheme.colors.danger else GetFitTheme.colors.textPrimary,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(Dimens.xs))
                                 Text(
                                     text = if (uiState.onlineSearchError == "No Internet Connection") {
                                         "Please check your network connection and try again."
@@ -1367,8 +1290,8 @@ private fun LogFoodTabContent(
                                     } else {
                                         "Tap 'Search with AI' above to look up instant verified macros live."
                                     },
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = GetFitTheme.colors.textSecondary,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.fillMaxWidth()
                                 )
@@ -1398,164 +1321,132 @@ private fun MealPlanTabContent(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-        contentPadding = PaddingValues(bottom = 32.dp)
+            .gfBottomBarPadding(),
+        contentPadding = PaddingValues(
+            start = Dimens.screenGutter,
+            end = Dimens.screenGutter,
+            top = Dimens.sm,
+            bottom = Dimens.xl
+        ),
+        verticalArrangement = Arrangement.spacedBy(Dimens.xxl)
     ) {
-        // Plan selector chips
+        // Plan selector chips with GfChipRow
         item(key = "meal_plans_selector") {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-            ) {
-                plans.forEachIndexed { index, plan ->
-                    FilterChip(
-                        selected = selectedIndex == index,
-                        onClick = { onSelectPlanIndex(index) },
-                        label = { Text("${plan.name} (${plan.totalCalories} kcal)", style = MaterialTheme.typography.labelSmall) }
-                    )
-                }
-            }
+            GfChipRow(
+                items = plans,
+                selectedItem = currentPlan,
+                onItemSelected = { plan -> onSelectPlanIndex(plans.indexOf(plan)) },
+                label = { "${it.name} (${it.totalCalories} kcal)" },
+                contentPadding = PaddingValues(0.dp)
+            )
         }
 
         // Active Plan Overview Card
         item {
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+            GfCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Text(
+                        text = currentPlan.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GetFitTheme.colors.textPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Spacer(modifier = Modifier.width(Dimens.sm))
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(GetFitTheme.colors.surface2)
+                            .border(1.dp, GetFitTheme.colors.hairline, CircleShape)
+                            .padding(horizontal = Dimens.md, vertical = Dimens.xs)
                     ) {
                         Text(
-                            text = currentPlan.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            text = "${currentPlan.totalCalories} kcal • ${currentPlan.totalProtein}g P",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GetFitTheme.colors.textSecondary,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
+                            softWrap = false
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Surface(
-                            shape = RoundedCornerShape(100.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                        ) {
-                            Text(
-                                text = "${currentPlan.totalCalories} kcal • ${currentPlan.totalProtein}g P",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                softWrap = false,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
-                        }
                     }
-
-                    Text(
-                        text = currentPlan.description,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
+
+                Spacer(modifier = Modifier.height(Dimens.xs))
+                Text(
+                    text = currentPlan.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = GetFitTheme.colors.textSecondary
+                )
             }
         }
 
         // Plan Meals List
         itemsIndexed(currentPlan.meals, key = { idx, meal -> "meal_${meal.mealType}_${meal.time}_$idx" }) { _, meal ->
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+            GfCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = Dimens.sm)
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(end = 8.dp)
-                        ) {
-                            Text(
-                                text = "SCHEDULED • ${meal.time}",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = 1.sp,
-                                maxLines = 1,
-                                softWrap = false,
-                                overflow = TextOverflow.Ellipsis,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                            Text(
-                                text = meal.mealType,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false,
-                                overflow = TextOverflow.Ellipsis,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable {
-                                onLogMealToDiary(meal, meal.mealType)
-                            }
-                        ) {
-                            Text(
-                                text = "+ Log to Diary",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                softWrap = false,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
-                        }
+                        GfOverline(text = "SCHEDULED • ${meal.time}")
+                        Text(
+                            text = meal.mealType,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GetFitTheme.colors.textPrimary,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
 
-                    Text(
-                        text = if (meal.carbs > 0 || meal.fat > 0) {
-                            "${meal.calories} kcal • ${meal.protein}g P • ${meal.carbs}g C • ${meal.fat}g F"
-                        } else {
-                            "${meal.calories} kcal • ${meal.protein}g Protein"
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
+                    GfTextButton(
+                        text = "+ Log to Diary",
+                        onClick = { onLogMealToDiary(meal, meal.mealType) },
+                        color = GetFitTheme.colors.accent
                     )
+                }
 
-                    // Food items in this meal
-                    meal.foods.forEach { foodDesc ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(text = "•", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(text = foodDesc, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
-                        }
+                Spacer(modifier = Modifier.height(Dimens.xs))
+                Text(
+                    text = if (meal.carbs > 0 || meal.fat > 0) {
+                        "${meal.calories} kcal • ${meal.protein}g P • ${meal.carbs}g C • ${meal.fat}g F"
+                    } else {
+                        "${meal.calories} kcal • ${meal.protein}g Protein"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GetFitTheme.colors.accent
+                )
+
+                Spacer(modifier = Modifier.height(Dimens.sm))
+                // Food items in this meal
+                meal.foods.forEach { foodDesc ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "•",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = GetFitTheme.colors.textTertiary
+                        )
+                        Text(
+                            text = foodDesc,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = GetFitTheme.colors.textPrimary
+                        )
                     }
                 }
             }
@@ -1582,121 +1473,115 @@ private fun QuickAddDialog(
     val mealTypes = listOf("Breakfast", "Lunch", "Dinner", "Snacks")
 
     Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        GfCard(
+            cornerRadius = Dimens.xl,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Quick Add Calories",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
-                    }
-                }
-
                 Text(
-                    text = "Quickly log raw calories and macros into your food diary without searching:",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "Quick Add Calories",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = GetFitTheme.colors.textPrimary
                 )
-
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Entry Name (optional)") },
-                    placeholder = { Text("e.g. Homemade Protein Shake") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    singleLine = true
-                )
-
-                OutlinedTextField(
-                    value = caloriesText,
-                    onValueChange = { caloriesText = it },
-                    label = { Text("Calories (kcal) *") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    singleLine = true
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = proteinText,
-                        onValueChange = { proteinText = it },
-                        label = { Text("Protein (g)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        singleLine = true
+                IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = GetFitTheme.colors.textSecondary
                     )
-                    OutlinedTextField(
-                        value = carbsText,
-                        onValueChange = { carbsText = it },
-                        label = { Text("Carbs (g)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = fatText,
-                        onValueChange = { fatText = it },
-                        label = { Text("Fat (g)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        singleLine = true
-                    )
-                }
-
-                Text(text = "Assign to Meal:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    mealTypes.forEach { type ->
-                        FilterChip(
-                            selected = selectedMealType == type,
-                            onClick = { selectedMealType = type },
-                            label = { Text(type, style = MaterialTheme.typography.labelSmall) }
-                        )
-                    }
-                }
-
-                Button(
-                    onClick = {
-                        val cals = caloriesText.toDoubleOrNull() ?: 0.0
-                        val p = proteinText.toDoubleOrNull() ?: 0.0
-                        val c = carbsText.toDoubleOrNull() ?: 0.0
-                        val f = fatText.toDoubleOrNull() ?: 0.0
-                        if (cals > 0) {
-                            onConfirm(name, cals, p, c, f, selectedMealType)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    enabled = (caloriesText.toDoubleOrNull() ?: 0.0) > 0.0
-                ) {
-                    Text("Log to Diary", fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                 }
             }
+
+            Spacer(modifier = Modifier.height(Dimens.xs))
+            Text(
+                text = "Quickly log raw calories and macros into your food diary without searching:",
+                style = MaterialTheme.typography.bodySmall,
+                color = GetFitTheme.colors.textSecondary
+            )
+
+            Spacer(modifier = Modifier.height(Dimens.md))
+            GfTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = "ENTRY NAME (OPTIONAL)",
+                placeholder = "e.g. Homemade Protein Shake",
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(Dimens.sm))
+            GfTextField(
+                value = caloriesText,
+                onValueChange = { caloriesText = it },
+                label = "CALORIES (KCAL) *",
+                placeholder = "0",
+                suffix = "kcal",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(Dimens.sm))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
+            ) {
+                GfTextField(
+                    value = proteinText,
+                    onValueChange = { proteinText = it },
+                    label = "PROTEIN",
+                    placeholder = "0",
+                    suffix = "g",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+                GfTextField(
+                    value = carbsText,
+                    onValueChange = { carbsText = it },
+                    label = "CARBS",
+                    placeholder = "0",
+                    suffix = "g",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+                GfTextField(
+                    value = fatText,
+                    onValueChange = { fatText = it },
+                    label = "FAT",
+                    placeholder = "0",
+                    suffix = "g",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(Dimens.md))
+            GfOverline(text = "ASSIGN TO MEAL")
+            Spacer(modifier = Modifier.height(Dimens.xs))
+            GfChipRow(
+                items = mealTypes,
+                selectedItem = selectedMealType,
+                onItemSelected = { selectedMealType = it },
+                contentPadding = PaddingValues(0.dp)
+            )
+
+            Spacer(modifier = Modifier.height(Dimens.lg))
+            val cals = caloriesText.toDoubleOrNull() ?: 0.0
+            GfPrimaryButton(
+                text = "Log to Diary",
+                enabled = cals > 0.0,
+                onClick = {
+                    val p = proteinText.toDoubleOrNull() ?: 0.0
+                    val c = carbsText.toDoubleOrNull() ?: 0.0
+                    val f = fatText.toDoubleOrNull() ?: 0.0
+                    if (cals > 0) {
+                        onConfirm(name, cals, p, c, f, selectedMealType)
+                    }
+                }
+            )
         }
     }
 }
@@ -1736,244 +1621,240 @@ fun DiaryDatePickerDialog(
     val dayLabels = listOf("M", "T", "W", "T", "F", "S", "S")
 
     Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        GfCard(
+            cornerRadius = Dimens.xl,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp)
+                .padding(vertical = Dimens.lg)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            // Header with Month Navigation (< Month Year >) and Close Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Header with Month Navigation (< Month Year >) and Close Button
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CalendarMonth,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
+                    Icon(
+                        imageVector = Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        tint = GetFitTheme.colors.accent,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Column {
+                        Text(
+                            text = "Select Diary Date",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GetFitTheme.colors.textPrimary
                         )
-                        Column {
-                            Text(
-                                text = "Select Diary Date",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            IconButton(
+                                onClick = { monthOffset-- },
+                                modifier = Modifier.size(24.dp)
                             ) {
-                                IconButton(
-                                    onClick = { monthOffset-- },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.ChevronLeft,
-                                        contentDescription = "Previous Month",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                                Text(
-                                    text = monthTitle,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.primary
+                                Icon(
+                                    imageVector = Icons.Default.ChevronLeft,
+                                    contentDescription = "Previous Month",
+                                    tint = GetFitTheme.colors.textSecondary,
+                                    modifier = Modifier.size(18.dp)
                                 )
-                                IconButton(
-                                    onClick = { monthOffset++ },
-                                    enabled = monthOffset < 0,
-                                    modifier = Modifier.size(24.dp)
+                            }
+                            Text(
+                                text = monthTitle,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = GetFitTheme.colors.accent
+                            )
+                            IconButton(
+                                onClick = { monthOffset++ },
+                                enabled = monthOffset < 0,
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight,
+                                    contentDescription = "Next Month",
+                                    tint = if (monthOffset < 0) GetFitTheme.colors.textSecondary else GetFitTheme.colors.textTertiary.copy(alpha = 0.25f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            if (monthOffset != 0) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(Dimens.xs))
+                                        .background(GetFitTheme.colors.surface2)
+                                        .pressable { monthOffset = 0 }
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.ChevronRight,
-                                        contentDescription = "Next Month",
-                                        tint = if (monthOffset < 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f),
-                                        modifier = Modifier.size(18.dp)
+                                    Text(
+                                        text = "Today",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = GetFitTheme.colors.textSecondary
                                     )
                                 }
-                                if (monthOffset != 0) {
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Surface(
-                                        shape = RoundedCornerShape(4.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant,
-                                        modifier = Modifier.clickable { monthOffset = 0 }
+                            }
+                        }
+                    }
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = GetFitTheme.colors.textSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(Dimens.md))
+
+            // Days of week header row (M T W T F S S)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                dayLabels.forEach { label ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GetFitTheme.colors.textTertiary
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(Dimens.xs))
+
+            // Fixed 6-week grid ensuring constant size across all months
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(Dimens.xs)
+            ) {
+                for (row in 0 until 6) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        for (col in 0..6) {
+                            val cellIndex = row * 7 + col
+                            val dayNum = cellIndex - leadingEmpty + 1
+                            if (dayNum in 1..daysInMonth) {
+                                val dayCal = (displayedCal.clone() as Calendar).apply {
+                                    set(Calendar.DAY_OF_MONTH, dayNum)
+                                }
+                                val dateStr = todaySdf.format(dayCal.time)
+                                val isSelected = (dateStr == selectedDate)
+                                val isLogged = loggedDates.contains(dateStr)
+                                val isToday = (dateStr == todayStr)
+                                val isFuture = dateStr > todayStr
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .padding(2.dp)
+                                        .clip(RoundedCornerShape(Dimens.sm))
+                                        .background(
+                                            when {
+                                                isSelected -> GetFitTheme.colors.accent
+                                                isToday -> GetFitTheme.colors.surface2
+                                                else -> Color.Transparent
+                                            }
+                                        )
+                                        .border(
+                                            width = if (isSelected) 1.dp else if (isToday) 1.dp else 0.dp,
+                                            color = if (isSelected) GetFitTheme.colors.accent else if (isToday) GetFitTheme.colors.hairline else Color.Transparent,
+                                            shape = RoundedCornerShape(Dimens.sm)
+                                        )
+                                        .pressable(enabled = !isFuture) {
+                                            onDateSelected(dateStr)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
                                     ) {
                                         Text(
-                                            text = "Today",
+                                            text = "$dayNum",
                                             style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-
-                // Days of week header row (M T W T F S S)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    dayLabels.forEach { label ->
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .aspectRatio(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                        }
-                    }
-                }
-
-                // Fixed 6-week grid ensuring constant size across all months
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    for (row in 0 until 6) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            for (col in 0..6) {
-                                val cellIndex = row * 7 + col
-                                val dayNum = cellIndex - leadingEmpty + 1
-                                if (dayNum in 1..daysInMonth) {
-                                    val dayCal = (displayedCal.clone() as Calendar).apply {
-                                        set(Calendar.DAY_OF_MONTH, dayNum)
-                                    }
-                                    val dateStr = todaySdf.format(dayCal.time)
-                                    val isSelected = (dateStr == selectedDate)
-                                    val isLogged = loggedDates.contains(dateStr)
-                                    val isToday = (dateStr == todayStr)
-                                    val isFuture = dateStr > todayStr
-
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .aspectRatio(1f)
-                                            .padding(2.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(
-                                                when {
-                                                    isSelected -> MaterialTheme.colorScheme.primary
-                                                    isToday -> MaterialTheme.colorScheme.surfaceVariant
-                                                    else -> Color.Transparent
-                                                }
-                                            )
-                                            .border(
-                                                width = if (isSelected) 1.dp else if (isToday) 0.8.dp else 0.dp,
-                                                color = if (isSelected) MaterialTheme.colorScheme.primary else if (isToday) MaterialTheme.colorScheme.outline else Color.Transparent,
-                                                shape = RoundedCornerShape(8.dp)
-                                            )
-                                            .clickable(enabled = !isFuture) {
-                                                onDateSelected(dateStr)
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.Center
-                                        ) {
-                                            Text(
-                                                text = "$dayNum",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
-                                                color = when {
-                                                    isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
-                                                    isSelected -> MaterialTheme.colorScheme.onPrimary
-                                                    isToday -> MaterialTheme.colorScheme.primary
-                                                    else -> MaterialTheme.colorScheme.onSurface
-                                                }
-                                            )
-                                            if (isLogged) {
-                                                Spacer(modifier = Modifier.height(2.dp))
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(4.dp)
-                                                        .clip(CircleShape)
-                                                        .background(if (isSelected) MaterialTheme.colorScheme.onPrimary else GetFitTheme.colors.success)
-                                                )
+                                            fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
+                                            color = when {
+                                                isFuture -> GetFitTheme.colors.textTertiary.copy(alpha = 0.3f)
+                                                isSelected -> GetFitTheme.colors.onAccent
+                                                isToday -> GetFitTheme.colors.accent
+                                                else -> GetFitTheme.colors.textPrimary
                                             }
+                                        )
+                                        if (isLogged) {
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(4.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (isSelected) GetFitTheme.colors.onAccent else GetFitTheme.colors.success)
+                                            )
                                         }
                                     }
-                                } else {
-                                    // Empty slot maintains equal height across all 6 rows
-                                    Spacer(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .aspectRatio(1f)
-                                            .padding(2.dp)
-                                    )
                                 }
+                            } else {
+                                Spacer(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .padding(2.dp)
+                                )
                             }
                         }
                     }
                 }
+            }
 
-                // Legend / Info Row
+            Spacer(modifier = Modifier.height(Dimens.md))
+
+            // Legend / Info Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(GetFitTheme.colors.success)
-                        )
-                        Text(
-                            text = "Logged Food",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(GetFitTheme.colors.success)
+                    )
+                    Text(
+                        text = "Logged Food",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = GetFitTheme.colors.textSecondary
+                    )
+                }
 
-                    if (selectedDate != todayStr) {
-                        TextButton(
-                            onClick = { onDateSelected(todayStr) },
-                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text("Jump to Today", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                        }
-                    }
+                if (selectedDate != todayStr) {
+                    GfTextButton(
+                        text = "Jump to Today",
+                        onClick = { onDateSelected(todayStr) },
+                        color = GetFitTheme.colors.accent
+                    )
                 }
             }
         }
@@ -2003,250 +1884,234 @@ private fun CopyYesterdayMealsDialog(
     val selectedCount = summaries.filter { selectedMeals[it.mealType] == true }.sumOf { it.itemsCount }
 
     Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        GfCard(
+            cornerRadius = Dimens.xl,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp)
+                .padding(vertical = Dimens.lg)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Header
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.sm),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(GetFitTheme.colors.accent.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = null,
+                            tint = GetFitTheme.colors.accent,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Copy Yesterday's Meals",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            softWrap = false,
+                            color = GetFitTheme.colors.textPrimary
+                        )
+                        Text(
+                            text = "To $currentDateLabel",
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            softWrap = false,
+                            color = GetFitTheme.colors.textSecondary
+                        )
+                    }
+                }
+
+                IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = GetFitTheme.colors.textSecondary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(Dimens.md))
+
+            if (totalAvailableItems == 0) {
+                // Empty state when yesterday had no food logged
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(Dimens.md))
+                        .background(GetFitTheme.colors.surface2)
+                        .padding(Dimens.lg),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Dimens.xs)
+                    ) {
+                        Text(
+                            text = "No Meals Logged Yesterday",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            softWrap = false,
+                            color = GetFitTheme.colors.textPrimary
+                        )
+                        Text(
+                            text = "Yesterday has no recorded meals to copy. Log food today to easily duplicate it tomorrow!",
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            color = GetFitTheme.colors.textSecondary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Dimens.md))
+
+                GfPrimaryButton(
+                    text = "Got It",
+                    onClick = onDismiss
+                )
+            } else {
+                // Quick Action Toggle: Select All / Deselect All
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.History,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
+                    Text(
+                        text = "Choose meals to copy:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GetFitTheme.colors.textSecondary,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+
+                    val allSelected = summaries.filter { it.itemsCount > 0 }.all { selectedMeals[it.mealType] == true }
+                    GfTextButton(
+                        text = if (allSelected) "Deselect All" else "Select All",
+                        onClick = {
+                            val target = !allSelected
+                            summaries.forEach {
+                                if (it.itemsCount > 0) {
+                                    selectedMeals[it.mealType] = target
+                                }
+                            }
+                        },
+                        color = GetFitTheme.colors.accent
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(Dimens.sm))
+
+                // Checkbox Meal Cards (Breakfast, Lunch, Dinner, Snacks)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.sm)
+                ) {
+                    summaries.forEach { summary ->
+                        val isAvailable = summary.itemsCount > 0
+                        val isChecked = selectedMeals[summary.mealType] == true
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(Dimens.md))
+                                .background(if (isChecked && isAvailable) GetFitTheme.colors.surface2 else GetFitTheme.colors.surface1)
+                                .border(
+                                    1.dp,
+                                    if (isChecked && isAvailable) GetFitTheme.colors.accent.copy(alpha = 0.45f) else GetFitTheme.colors.hairline,
+                                    RoundedCornerShape(Dimens.md)
                                 )
+                                .pressable(enabled = isAvailable) {
+                                    selectedMeals[summary.mealType] = !isChecked
+                                }
+                                .padding(horizontal = Dimens.md, vertical = Dimens.sm)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(Dimens.sm),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Checkbox(
+                                        checked = isChecked && isAvailable,
+                                        onCheckedChange = if (isAvailable) { isCheckedNew -> selectedMeals[summary.mealType] = isCheckedNew } else null,
+                                        enabled = isAvailable,
+                                        colors = CheckboxDefaults.colors(
+                                            checkedColor = GetFitTheme.colors.accent,
+                                            checkmarkColor = GetFitTheme.colors.onAccent,
+                                            uncheckedColor = GetFitTheme.colors.hairline
+                                        )
+                                    )
+
+                                    Column {
+                                        Text(
+                                            text = summary.mealType,
+                                            fontWeight = FontWeight.SemiBold,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            color = if (isAvailable) GetFitTheme.colors.textPrimary else GetFitTheme.colors.textTertiary
+                                        )
+                                        Text(
+                                            text = if (isAvailable) {
+                                                "${summary.itemsCount} item${if (summary.itemsCount > 1) "s" else ""} • ${summary.totalCalories} kcal"
+                                            } else {
+                                                "No items logged yesterday"
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            color = if (isAvailable) GetFitTheme.colors.textSecondary else GetFitTheme.colors.textTertiary.copy(alpha = 0.5f)
+                                        )
+                                    }
+                                }
                             }
                         }
-                        Column {
-                            Text(
-                                text = "Copy Yesterday's Meals",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "To $currentDateLabel",
-                                style = MaterialTheme.typography.labelSmall,
-                                maxLines = 1,
-                                softWrap = false,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
                     }
                 }
 
-                if (totalAvailableItems == 0) {
-                    // Empty state when yesterday had no food logged
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "No Meals Logged Yesterday",
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                softWrap = false,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Yesterday has no recorded meals to copy. Log food today to easily duplicate it tomorrow!",
-                                style = MaterialTheme.typography.labelSmall,
-                                textAlign = TextAlign.Center,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                Spacer(modifier = Modifier.height(Dimens.md))
 
-                    Button(
+                // Action Buttons (Cancel / Copy Selected)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
+                ) {
+                    GfSecondaryButton(
+                        text = "Cancel",
                         onClick = onDismiss,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("Got It", maxLines = 1, softWrap = false)
-                    }
-                } else {
-                    // Quick Action Toggle: Select All / Deselect All
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Choose meals to copy:",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+                        modifier = Modifier.weight(1f)
+                    )
 
-                        val allSelected = summaries.filter { it.itemsCount > 0 }.all { selectedMeals[it.mealType] == true }
-                        TextButton(
-                            onClick = {
-                                val target = !allSelected
-                                summaries.forEach {
-                                    if (it.itemsCount > 0) {
-                                        selectedMeals[it.mealType] = target
-                                    }
-                                }
-                            },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = if (allSelected) "Deselect All" else "Select All",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                        }
-                    }
-
-                    // Checkbox Meal Cards (Breakfast, Lunch, Dinner, Snacks)
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        summaries.forEach { summary ->
-                            val isAvailable = summary.itemsCount > 0
-                            val isChecked = selectedMeals[summary.mealType] == true
-
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (isChecked && isAvailable) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isChecked && isAvailable) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
-                                ),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(enabled = isAvailable) {
-                                        selectedMeals[summary.mealType] = !isChecked
-                                    }
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Checkbox(
-                                            checked = isChecked && isAvailable,
-                                            onCheckedChange = if (isAvailable) { isCheckedNew -> selectedMeals[summary.mealType] = isCheckedNew } else null,
-                                            enabled = isAvailable
-                                        )
-
-                                        Column {
-                                            Text(
-                                                text = summary.mealType,
-                                                fontWeight = FontWeight.Bold,
-                                                style = MaterialTheme.typography.labelMedium,
-                                                maxLines = 1,
-                                                softWrap = false,
-                                                color = if (isAvailable) MaterialTheme.colorScheme.onSurface
-                                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                            )
-                                            Text(
-                                                text = if (isAvailable) {
-                                                    "${summary.itemsCount} item${if (summary.itemsCount > 1) "s" else ""} • ${summary.totalCalories} kcal"
-                                                } else {
-                                                    "No items logged yesterday"
-                                                },
-                                                style = MaterialTheme.typography.labelSmall,
-                                                maxLines = 1,
-                                                softWrap = false,
-                                                color = if (isAvailable) MaterialTheme.colorScheme.onSurfaceVariant
-                                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Action Buttons (Cancel / Copy Selected)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text("Cancel", maxLines = 1, softWrap = false)
-                        }
-
-                        Button(
-                            onClick = {
-                                val chosen = summaries
-                                    .filter { selectedMeals[it.mealType] == true && it.itemsCount > 0 }
-                                    .map { it.mealType }
-                                    .toSet()
-                                onConfirmCopy(chosen)
-                            },
-                            enabled = selectedCount > 0,
-                            modifier = Modifier.weight(1.5f),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text(
-                                text = if (selectedCount > 0) "Copy ($selectedCount Items)" else "Copy Selected",
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                        }
-                    }
+                    GfPrimaryButton(
+                        text = if (selectedCount > 0) "Copy ($selectedCount)" else "Copy Selected",
+                        onClick = {
+                            val chosen = summaries
+                                .filter { selectedMeals[it.mealType] == true && it.itemsCount > 0 }
+                                .map { it.mealType }
+                                .toSet()
+                            onConfirmCopy(chosen)
+                        },
+                        enabled = selectedCount > 0,
+                        modifier = Modifier.weight(1.5f)
+                    )
                 }
             }
         }

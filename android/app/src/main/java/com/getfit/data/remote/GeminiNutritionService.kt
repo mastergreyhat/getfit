@@ -2,8 +2,10 @@ package com.getfit.data.remote
 
 import android.content.Context
 import android.util.Log
+import com.getfit.BuildConfig
 import com.getfit.data.entity.FoodItem
 import com.getfit.ui.util.AiPreferences
+import com.getfit.ui.util.AuthPreferences
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
@@ -44,32 +46,17 @@ object GeminiNutritionService {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) return@withContext emptyList()
 
-        // 1. Prioritize Cloudflare Serverless AI Proxy (zero key required on client, 24h edge cache)
-        if (AiPreferences.isAiSearchEnabled(context)) {
+        // 1. Prioritize Cloudflare Serverless AI Proxy (for authenticated users, 24h edge cache)
+        if (AiPreferences.isAiSearchEnabled(context) && AuthPreferences.isLoggedIn(context)) {
             try {
                 val workerResults = withTimeoutOrNull(OVERALL_TIMEOUT_MS) {
-                    queryCloudflareWorker(trimmed)
+                    queryCloudflareWorker(context, trimmed)
                 }
                 if (workerResults != null && workerResults.isNotEmpty()) {
                     return@withContext workerResults
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Cloudflare Worker proxy query failed: ${e.message}")
-            }
-        }
-
-        // 2. Direct Gemini fallback (if client key is set)
-        val userApiKey = AiPreferences.getGeminiApiKey(context)
-        if (userApiKey.isNotBlank() && AiPreferences.isAiSearchEnabled(context)) {
-            try {
-                val geminiResults = withTimeoutOrNull(OVERALL_TIMEOUT_MS) {
-                    queryGemini(trimmed, userApiKey)
-                }
-                if (geminiResults != null && geminiResults.isNotEmpty()) {
-                    return@withContext geminiResults
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Gemini API query failed: ${e.message}")
             }
         }
 
@@ -207,7 +194,11 @@ object GeminiNutritionService {
         return emptyList()
     }
 
-    private fun queryCloudflareWorker(foodQuery: String): List<FoodItem>? {
+    private fun queryCloudflareWorker(context: Context, foodQuery: String): List<FoodItem>? {
+        val token = AuthPreferences.getToken(context)
+        if (token.isNullOrBlank()) {
+            return null
+        }
         var conn: HttpURLConnection? = null
         try {
             val encodedQuery = URLEncoder.encode(foodQuery, "UTF-8")
@@ -217,6 +208,7 @@ object GeminiNutritionService {
                 connectTimeout = CONNECT_TIMEOUT_MS
                 readTimeout = READ_TIMEOUT_MS
                 setRequestProperty("Accept", "application/json")
+                setRequestProperty("Authorization", "Bearer $token")
             }
 
             if (conn.responseCode in 200..299) {
@@ -288,7 +280,7 @@ object GeminiNutritionService {
         val list = mutableListOf<FoodItem>()
         try {
             val encodedQuery = URLEncoder.encode(foodQuery, "UTF-8")
-            val urlString = "$USDA_API_ENDPOINT?query=$encodedQuery&pageSize=8&api_key=DEMO_KEY"
+            val urlString = "$USDA_API_ENDPOINT?query=$encodedQuery&pageSize=8&api_key=${BuildConfig.USDA_API_KEY}"
             val url = URL(urlString)
 
             conn = (url.openConnection() as HttpURLConnection).apply {

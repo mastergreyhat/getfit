@@ -53,6 +53,7 @@ fun GfBigNumber(
     unit: String? = null,
     hero: Boolean = false,
     color: Color = GetFitTheme.colors.textPrimary,
+    unitColor: Color = if (color == GetFitTheme.colors.warning) GetFitTheme.colors.warning else GetFitTheme.colors.textSecondary,
     style: TextStyle = MaterialTheme.typography.displayLarge
 ) {
     val animatedValue by animateIntAsState(
@@ -87,7 +88,7 @@ fun GfBigNumber(
                     text = unit,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = GetFitTheme.colors.textSecondary,
+                    color = unitColor,
                     maxLines = 1,
                     softWrap = false,
                     modifier = Modifier.alignByBaseline()
@@ -110,6 +111,7 @@ fun GfBigNumber(
     unit: String? = null,
     hero: Boolean = false,
     color: Color = GetFitTheme.colors.textPrimary,
+    unitColor: Color = if (color == GetFitTheme.colors.warning) GetFitTheme.colors.warning else GetFitTheme.colors.textSecondary,
     style: TextStyle = MaterialTheme.typography.displayLarge
 ) {
     val animatedValue by androidx.compose.animation.core.animateFloatAsState(
@@ -150,7 +152,7 @@ fun GfBigNumber(
                     text = unit,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = GetFitTheme.colors.textSecondary,
+                    color = unitColor,
                     maxLines = 1,
                     softWrap = false,
                     modifier = Modifier.alignByBaseline()

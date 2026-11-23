@@ -5,9 +5,12 @@ compatibility_date = "2024-01-01"
 [vars]
 # Non-sensitive variables go here
 
-# Sensitive secret:
-# Set using: npx wrangler secret put GEMINI_API_KEY
-# Optional JWT Secret: npx wrangler secret put JWT_SECRET
+# REQUIRED Worker Secrets:
+# Deployers MUST set the following secrets before running the service:
+# 1. npx wrangler secret put GEMINI_API_KEY
+# 2. npx wrangler secret put JWT_SECRET      (REQUIRED: minimum 32 characters for secure HMAC-SHA256 signing)
+# 3. npx wrangler secret put RELAY_SECRET    (REQUIRED: shared secret token for Google Apps Script email relay)
+# 4. npx wrangler secret put GMAIL_RELAY_URL (Google Apps Script web app URL for email OTP delivery)
 
 # Cloudflare D1 Database Binding:
 # 1. In Cloudflare dashboard, create a D1 database named "getfit-db"

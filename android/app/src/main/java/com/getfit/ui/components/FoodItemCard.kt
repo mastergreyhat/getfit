@@ -19,10 +19,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.getfit.data.entity.FoodItem
-import com.getfit.ui.theme.CaloriesOrange
-import com.getfit.ui.theme.CarbsAmber
-import com.getfit.ui.theme.FatRed
-import com.getfit.ui.theme.ProteinBlue
+import com.getfit.ui.theme.GetFitTheme
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -46,12 +43,12 @@ fun FoodItemCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
             .then(clickModifier),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = GetFitTheme.colors.surface1
         ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        border = BorderStroke(1.dp, GetFitTheme.colors.hairline),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -139,11 +136,11 @@ fun FoodItemCard(
                     val cal = food.caloriesPer100g.toInt()
                     Text(
                         text = if (isPiece) "$cal kcal/piece" else "$cal kcal",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
+                        fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         softWrap = false,
-                        color = CaloriesOrange
+                        color = GetFitTheme.colors.textPrimary
                     )
                     Text(
                         text = "P: ${food.proteinPer100g}g",
@@ -151,7 +148,7 @@ fun FoodItemCard(
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         softWrap = false,
-                        color = ProteinBlue
+                        color = GetFitTheme.colors.protein
                     )
                     Text(
                         text = "C: ${food.carbsPer100g}g",
@@ -159,7 +156,7 @@ fun FoodItemCard(
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         softWrap = false,
-                        color = CarbsAmber
+                        color = GetFitTheme.colors.carbs
                     )
                     Text(
                         text = "F: ${food.fatPer100g}g",
@@ -167,7 +164,7 @@ fun FoodItemCard(
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         softWrap = false,
-                        color = FatRed
+                        color = GetFitTheme.colors.fat
                     )
                 }
             }

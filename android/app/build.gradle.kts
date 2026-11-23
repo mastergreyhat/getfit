@@ -1,8 +1,22 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
 }
+
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(localPropertiesFile.inputStream())
+} else {
+    val rootLocalProperties = rootProject.file("../local.properties")
+    if (rootLocalProperties.exists()) {
+        localProperties.load(rootLocalProperties.inputStream())
+    }
+}
+val usdaApiKey = localProperties.getProperty("USDA_API_KEY") ?: "DEMO_KEY"
 
 android {
     namespace = "com.getfit"
@@ -14,6 +28,8 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "USDA_API_KEY", "\"$usdaApiKey\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -39,6 +55,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.8"
