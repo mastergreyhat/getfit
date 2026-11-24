@@ -113,24 +113,7 @@ fun GfHeroCard(
 @Preview(name = "GfCard - Dark", showBackground = true, backgroundColor = 0xFF000000)
 @Composable
 private fun GfCardDarkPreview() {
-    GetFitTheme(themeMode = "DARK") {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            GfCard {
-                Text("Standard Card", style = MaterialTheme.typography.titleMedium, color = GetFitTheme.colors.textPrimary)
-                Text("Surface1 layered with hairline border and 20dp padding", style = MaterialTheme.typography.bodyMedium, color = GetFitTheme.colors.textSecondary)
-            }
-            GfHeroCard {
-                Text("Hero Card (Dominant)", style = MaterialTheme.typography.titleMedium, color = GetFitTheme.colors.textPrimary)
-                Text("Subtle 6% radial accent glow in the top corner", style = MaterialTheme.typography.bodyMedium, color = GetFitTheme.colors.textSecondary)
-            }
-        }
-    }
-}
-
-@Preview(name = "GfCard - Light", showBackground = true, backgroundColor = 0xFFF7F6F2)
-@Composable
-private fun GfCardLightPreview() {
-    GetFitTheme(themeMode = "LIGHT") {
+    GetFitTheme {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             GfCard {
                 Text("Standard Card", style = MaterialTheme.typography.titleMedium, color = GetFitTheme.colors.textPrimary)

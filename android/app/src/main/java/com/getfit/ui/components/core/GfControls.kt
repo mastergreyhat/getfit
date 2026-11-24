@@ -359,33 +359,7 @@ fun GfTextField(
 @Preview(name = "GfControls - Dark", showBackground = true, backgroundColor = 0xFF000000)
 @Composable
 private fun GfControlsDarkPreview() {
-    GetFitTheme(themeMode = "DARK") {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            val chips = listOf("Chest", "Back", "Shoulders", "Arms", "Legs", "Core")
-            GfChipRow(items = chips, selectedItem = "Chest", onItemSelected = {})
-            GfSegmentedControl(items = listOf("7 Days", "30 Days", "1 Year"), selectedIndex = 0, onSelect = {})
-            GfTextField(
-                value = "180",
-                onValueChange = {},
-                label = "Daily Protein",
-                suffix = "g",
-                placeholder = "Target in grams"
-            )
-            GfTextField(
-                value = "Invalid",
-                onValueChange = {},
-                label = "Weight",
-                isError = true,
-                supportingText = "Please enter a valid numeric value"
-            )
-        }
-    }
-}
-
-@Preview(name = "GfControls - Light", showBackground = true, backgroundColor = 0xFFF7F6F2)
-@Composable
-private fun GfControlsLightPreview() {
-    GetFitTheme(themeMode = "LIGHT") {
+    GetFitTheme {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             val chips = listOf("Chest", "Back", "Shoulders", "Arms", "Legs", "Core")
             GfChipRow(items = chips, selectedItem = "Chest", onItemSelected = {})

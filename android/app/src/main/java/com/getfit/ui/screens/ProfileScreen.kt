@@ -14,7 +14,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -70,7 +69,6 @@ import com.getfit.ui.util.AvatarManager
 import com.getfit.ui.util.StreakManager
 import com.getfit.ui.components.WheelTimePickerDialog
 import com.getfit.notification.ReminderPreferences
-import com.getfit.ui.components.ThemeCapsuleToggle
 import com.getfit.ui.components.core.GfBigNumber
 import com.getfit.ui.components.core.GfCard
 import com.getfit.ui.components.core.GfChipFlow
@@ -83,7 +81,6 @@ import com.getfit.ui.components.core.GfTextButton
 import com.getfit.ui.components.core.GfTextField
 import com.getfit.ui.components.core.gfBottomBarPadding
 import com.getfit.ui.components.core.pressable
-import com.getfit.ui.util.ThemePreferences
 import com.getfit.ui.viewmodel.ProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -166,12 +163,6 @@ fun ProfileScreen(
             delay(1800)
             showSavedSnackbar = false
         }
-    }
-    val currentThemeMode by ThemePreferences.themeMode.collectAsState()
-    val isDark = when (currentThemeMode) {
-        "DARK" -> true
-        "LIGHT" -> false
-        else -> isSystemInDarkTheme()
     }
 
     val restoreBackupLauncher = rememberLauncherForActivityResult(
@@ -1137,26 +1128,6 @@ fun ProfileScreen(
                                 tint = GetFitTheme.colors.textSecondary
                             )
                         }
-                    }
-
-                    Divider(color = GetFitTheme.colors.hairline, thickness = 1.dp)
-
-                    // Theme Appearance
-                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.sm)) {
-                        GfOverline(text = "Appearance")
-                        Text(
-                            text = "Switch between Clean White light theme and OLED Inverted dark theme",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = GetFitTheme.colors.textSecondary
-                        )
-                        ThemeCapsuleToggle(
-                            isDark = isDark,
-                            onToggle = { dark ->
-                                ThemePreferences.setThemeMode(context, if (dark) "DARK" else "LIGHT")
-                            },
-                            fullWidth = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
                     }
 
                     Divider(color = GetFitTheme.colors.hairline, thickness = 1.dp)

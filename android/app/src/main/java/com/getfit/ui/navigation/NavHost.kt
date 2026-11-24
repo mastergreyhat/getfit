@@ -8,11 +8,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Home
@@ -22,7 +23,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -44,16 +48,15 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.getfit.R
-import com.getfit.ui.components.ThemeCapsuleToggle
 import com.getfit.ui.components.core.GfBottomBar
 import com.getfit.ui.components.core.GfBottomNavItem
 import com.getfit.ui.components.core.GfBrandLogo
+import com.getfit.ui.components.core.pressable
 import com.getfit.ui.screens.*
 import com.getfit.ui.theme.Dimens
 import com.getfit.ui.theme.GetFitTheme
 import com.getfit.ui.util.AuthPreferences
 import com.getfit.ui.util.OnboardingPreferences
-import com.getfit.ui.util.ThemePreferences
 import com.getfit.ui.viewmodel.*
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -133,6 +136,7 @@ fun GetFitNavHost(
 
     // Check if bottom bar should be visible
     val isBottomBarVisible = remember(currentRoute) { bottomNavItems.any { it.route == currentRoute } }
+    var isDashboardScrolled by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
@@ -140,6 +144,7 @@ fun GetFitNavHost(
             if (isBottomBarVisible) {
                 CleanTopHeader(
                     currentRoute = currentRoute,
+                    isScrolled = isDashboardScrolled,
                     onNavigateToAnalytics = {
                         navController.navigate(Screen.Analytics.route)
                     }
@@ -223,6 +228,7 @@ fun GetFitNavHost(
             composable(Screen.Dashboard.route) {
                 DashboardScreen(
                     viewModel = dashboardViewModel,
+                    onScrollChanged = { isDashboardScrolled = it },
                     onNavigateToFood = {
                         foodViewModel.resetToDiary()
                         navController.navigate(Screen.Food.route) {
@@ -429,8 +435,10 @@ fun GetFitNavHost(
 @Composable
 private fun CleanTopHeader(
     currentRoute: String?,
+    isScrolled: Boolean = false,
     onNavigateToAnalytics: () -> Unit
 ) {
+    val isHome = currentRoute == Screen.Dashboard.route || currentRoute == null
     val title = when (currentRoute) {
         Screen.Food.route -> "Nutrition"
         Screen.Workout.route -> "Training"
@@ -446,13 +454,14 @@ private fun CleanTopHeader(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Dimens.screenGutter, vertical = Dimens.md),
+                    .height(64.dp)
+                    .padding(horizontal = Dimens.screenGutter),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (currentRoute == Screen.Dashboard.route || currentRoute == null) {
+                if (isHome) {
                     GfBrandLogo(
-                        iconSize = 26.dp,
+                        iconSize = 30.dp,
                         textStyle = MaterialTheme.typography.titleLarge
                     )
                 } else {
@@ -464,51 +473,48 @@ private fun CleanTopHeader(
                     )
                 }
 
-                // Analytics Pill (matches GfBrandLogo & GfBottomBar family)
-                Surface(
-                    shape = RoundedCornerShape(100.dp),
-                    color = GetFitTheme.colors.surface1,
-                    border = BorderStroke(1.dp, GetFitTheme.colors.hairline),
-                    modifier = Modifier.clickable { onNavigateToAnalytics() }
+                Box(
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .pressable(onClick = onNavigateToAnalytics),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        modifier = Modifier.padding(start = 6.dp, end = Dimens.md, top = 5.dp, bottom = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
+                    Surface(
+                        modifier = Modifier.size(40.dp),
+                        shape = CircleShape,
+                        color = GetFitTheme.colors.surface1,
+                        border = BorderStroke(1.dp, GetFitTheme.colors.hairline)
                     ) {
                         Box(
-                            modifier = Modifier
-                                .size(22.dp)
-                                .background(
-                                    color = GetFitTheme.colors.accent.copy(alpha = 0.14f),
-                                    shape = androidx.compose.foundation.shape.CircleShape
-                                ),
+                            modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                                imageVector = Icons.AutoMirrored.Rounded.TrendingUp,
                                 contentDescription = "Analytics",
-                                tint = GetFitTheme.colors.accent,
-                                modifier = Modifier.size(13.dp)
+                                tint = GetFitTheme.colors.textSecondary,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
-                        Text(
-                            text = "Analytics",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = GetFitTheme.colors.textPrimary,
-                            maxLines = 1,
-                            softWrap = false
-                        )
                     }
                 }
             }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(GetFitTheme.colors.hairline)
-            )
+            if (!isHome || isScrolled) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(GetFitTheme.colors.hairline)
+                )
+            }
         }
+    }
+}
+
+@Preview(name = "CleanTopHeader - Home Dark", showBackground = true, backgroundColor = 0xFF000000)
+@Composable
+private fun CleanTopHeaderDarkPreview() {
+    GetFitTheme {
+        CleanTopHeader(currentRoute = Screen.Dashboard.route, isScrolled = false, onNavigateToAnalytics = {})
     }
 }

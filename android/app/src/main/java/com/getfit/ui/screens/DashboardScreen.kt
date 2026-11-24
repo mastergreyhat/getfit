@@ -1,6 +1,13 @@
 package com.getfit.ui.screens
 
+import android.provider.Settings
 import androidx.compose.animation.core.*
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.tooling.preview.Preview
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -62,11 +69,17 @@ fun DashboardScreen(
     viewModel: DashboardViewModel,
     onNavigateToFood: () -> Unit,
     onNavigateToHydration: () -> Unit = onNavigateToFood,
-    onNavigateToWorkout: () -> Unit
+    onNavigateToWorkout: () -> Unit,
+    onScrollChanged: (Boolean) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
+    val haptic = LocalHapticFeedback.current
     var showCalendarDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(scrollState) {
+        snapshotFlow { scrollState.value > 0 }.collect { onScrollChanged(it) }
+    }
 
     val streakAnimationStage = when {
         uiState.currentStreak >= 3 -> 3
@@ -279,7 +292,10 @@ fun DashboardScreen(
         // ==========================================
         GfCard(
             modifier = Modifier.gfEntrance(1),
-            onClick = { showCalendarDialog = true }
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                showCalendarDialog = true
+            }
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -290,15 +306,11 @@ fun DashboardScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(Dimens.md)
                 ) {
-                    Box(
-                        modifier = Modifier.size(34.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        AnimatedThunderbolt(
-                            stage = streakAnimationStage,
-                            size = 30.dp
-                        )
-                    }
+                    AnimatedThunderbolt(
+                        stage = streakAnimationStage,
+                        isLoggedToday = uiState.isLoggedToday,
+                        size = 40.dp
+                    )
                     Column {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -312,13 +324,13 @@ fun DashboardScreen(
                             )
                             if (uiState.isLoggedToday) {
                                 Surface(
-                                    shape = RoundedCornerShape(100.dp),
-                                    color = GetFitTheme.colors.surface2
+                                    shape = CircleShape,
+                                    color = GetFitTheme.colors.accent.copy(alpha = 0.12f)
                                 ) {
                                     Text(
                                         text = "ACTIVE",
                                         style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = FontWeight.SemiBold,
                                         letterSpacing = 0.5.sp,
                                         color = GetFitTheme.colors.accent,
                                         modifier = Modifier.padding(horizontal = Dimens.sm, vertical = 2.dp)
@@ -406,13 +418,10 @@ fun DashboardScreen(
                                 .clip(CircleShape)
                                 .then(
                                     when {
-                                        isStreak || day.isToday && isDone -> Modifier.background(GetFitTheme.colors.accent)
+                                        day.isToday -> Modifier.background(GetFitTheme.colors.accent)
                                         isDone -> Modifier
-                                            .background(GetFitTheme.colors.surface2)
-                                            .border(1.dp, GetFitTheme.colors.accent, CircleShape)
-                                        day.isToday -> Modifier
-                                            .background(GetFitTheme.colors.surface3)
-                                            .border(1.dp, GetFitTheme.colors.textTertiary, CircleShape)
+                                            .background(Color.Transparent)
+                                            .border(1.5.dp, GetFitTheme.colors.accent, CircleShape)
                                         else -> Modifier
                                             .background(Color.Transparent)
                                             .border(1.dp, GetFitTheme.colors.hairline, CircleShape)
@@ -423,10 +432,10 @@ fun DashboardScreen(
                             Text(
                                 text = day.dayNumber,
                                 style = MaterialTheme.typography.labelSmall,
-                                fontWeight = if (isDone || day.isToday) FontWeight.Bold else FontWeight.Normal,
+                                fontWeight = if (day.isToday || isDone) FontWeight.Bold else FontWeight.Normal,
                                 color = when {
-                                    isStreak || (day.isToday && isDone) -> GetFitTheme.colors.onAccent
-                                    isDone || day.isToday -> GetFitTheme.colors.textPrimary
+                                    day.isToday -> GetFitTheme.colors.onAccent
+                                    isDone -> GetFitTheme.colors.textPrimary
                                     else -> GetFitTheme.colors.textTertiary
                                 }
                             )
@@ -463,11 +472,10 @@ fun DashboardScreen(
                     )
                 }
 
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = "Modify hydration",
-                    tint = GetFitTheme.colors.textTertiary,
-                    modifier = Modifier.size(20.dp)
+                GfSecondaryButton(
+                    text = "+250 ml",
+                    onClick = { viewModel.quickAddWater(250) },
+                    compact = true
                 )
             }
 
@@ -560,165 +568,96 @@ fun DashboardScreen(
 }
 
 /**
- * Animated Thunderbolt Icon with progressive intensity stages:
- * - Stage 1 (Day 1): Small, gentle wave, warm golden-yellow flow.
- * - Stage 2 (Day 2): Faster wave, vibrant electric yellow into electric cyan.
- * - Stage 3 (Day 3+): Intense lightning surge with animated electric particle circling the bolt.
- *
- * Glow smoothly dissolves into the card surface without bounding boxes or sharp outlines.
+ * Minimal streak bolt tile:
+ * - 40.dp circle with surface2 fill and 1.dp hairline border (matching the Analytics icon button).
+ * - 18.dp stroke-only (1.75.dp) bolt in accent when active today, or textTertiary when inactive.
+ * - Subtle one-time entrance scale/fade; no infinite animations. Respects ANIMATOR_DURATION_SCALE == 0f.
  */
 @Composable
 fun AnimatedThunderbolt(
     stage: Int = 1,
+    isLoggedToday: Boolean = true,
     modifier: Modifier = Modifier,
-    size: Dp = 28.dp
+    size: Dp = 40.dp
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "thunderbolt_anim")
-
-    val waveDuration = when (stage) {
-        1 -> 1600
-        2 -> 900
-        else -> 450
+    val context = LocalContext.current
+    val reducedMotion = remember(context) {
+        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
     }
 
-    val waveOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(waveDuration, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "wave_offset"
-    )
+    val activeAnim = isLoggedToday && !reducedMotion
 
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = when (stage) {
-            1 -> 0.98f
-            2 -> 0.96f
-            else -> 0.94f
-        },
-        targetValue = when (stage) {
-            1 -> 1.02f
-            2 -> 1.04f
-            else -> 1.06f
-        },
-        animationSpec = infiniteRepeatable(
-            animation = tween(when (stage) {
-                1 -> 700
-                2 -> 500
-                else -> 320
-            }, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse_scale"
-    )
+    val tileScale = remember(isLoggedToday, reducedMotion) {
+        Animatable(if (activeAnim) 0.85f else 1f)
+    }
+    val boltAlpha = remember(isLoggedToday, reducedMotion) {
+        Animatable(if (activeAnim) 0f else 1f)
+    }
 
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = when (stage) {
-            1 -> 0.18f
-            2 -> 0.28f
-            else -> 0.35f
-        },
-        targetValue = when (stage) {
-            1 -> 0.42f
-            2 -> 0.65f
-            else -> 0.85f
-        },
-        animationSpec = infiniteRepeatable(
-            animation = tween(when (stage) {
-                1 -> 650
-                2 -> 500
-                else -> 320
-            }, easing = LinearOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glow_alpha"
-    )
+    LaunchedEffect(activeAnim) {
+        if (activeAnim) {
+            tileScale.animateTo(1f, spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessMediumLow))
+            boltAlpha.animateTo(1f, tween(durationMillis = 200))
+        }
+    }
 
-    val boltAccent = GetFitTheme.colors.accent
-    val boltGlow = GetFitTheme.colors.streakGlow
-    val boltText = GetFitTheme.colors.textPrimary
+    val boltColor = if (isLoggedToday) GetFitTheme.colors.accent else GetFitTheme.colors.textTertiary
 
     Box(
         modifier = modifier
             .size(size)
             .graphicsLayer {
-                this.scaleX = pulseScale
-                this.scaleY = pulseScale
-            },
+                scaleX = tileScale.value
+                scaleY = tileScale.value
+            }
+            .clip(CircleShape)
+            .background(GetFitTheme.colors.surface2)
+            .border(1.dp, GetFitTheme.colors.hairline, CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = this.size.width
-            val h = this.size.height
+            val tileW = this.size.width
+            val tileH = this.size.height
 
-            val glowColors = listOf(
-                boltAccent.copy(alpha = 0.25f * glowAlpha),
-                boltGlow.copy(alpha = 0.12f * glowAlpha),
-                Color.Transparent
-            )
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = glowColors,
-                    center = Offset(w * 0.5f, h * 0.5f),
-                    radius = w * 0.85f
-                ),
-                center = Offset(w * 0.5f, h * 0.5f),
-                radius = w * 0.85f
-            )
+            val boltSize = (18.dp.toPx()).coerceAtMost(tileW * 0.55f)
+            val left = (tileW - boltSize) / 2f
+            val top = (tileH - boltSize) / 2f
 
             val boltPath = Path().apply {
-                moveTo(w * 0.58f, 0f)
-                lineTo(w * 0.16f, h * 0.54f)
-                lineTo(w * 0.48f, h * 0.54f)
-                lineTo(w * 0.38f, h * 1.0f)
-                lineTo(w * 0.84f, h * 0.44f)
-                lineTo(w * 0.52f, h * 0.44f)
+                moveTo(left + boltSize * 0.58f, top)
+                lineTo(left + boltSize * 0.16f, top + boltSize * 0.54f)
+                lineTo(left + boltSize * 0.48f, top + boltSize * 0.54f)
+                lineTo(left + boltSize * 0.38f, top + boltSize * 1.0f)
+                lineTo(left + boltSize * 0.84f, top + boltSize * 0.44f)
+                lineTo(left + boltSize * 0.52f, top + boltSize * 0.44f)
                 close()
             }
 
-            clipPath(boltPath) {
-                val shiftY = waveOffset * h * 2f
-                val gradientColors = listOf(
-                    boltAccent,
-                    boltAccent.copy(alpha = 0.85f),
-                    boltText.copy(alpha = 0.9f),
-                    boltAccent
-                )
-
-                val electricBrush = Brush.linearGradient(
-                    colors = gradientColors,
-                    start = Offset(w * 0.2f, -h + shiftY),
-                    end = Offset(w * 0.8f, h + shiftY)
-                )
-                drawRect(brush = electricBrush)
-
-                val waveY = (shiftY % (h * 1.6f)) - (h * 0.3f)
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            boltText.copy(alpha = if (stage == 1) 0.5f else 0.85f),
-                            boltAccent.copy(alpha = 0.5f),
-                            Color.Transparent
-                        ),
-                        center = Offset(w * 0.5f, waveY),
-                        radius = w * 0.65f
-                    ),
-                    center = Offset(w * 0.5f, waveY),
-                    radius = w * 0.65f
-                )
-            }
-
-            val strokeColor = boltAccent.copy(alpha = 0.75f)
             drawPath(
                 path = boltPath,
-                color = strokeColor,
+                color = boltColor.copy(alpha = boltColor.alpha * boltAlpha.value),
                 style = Stroke(
-                    width = 1.1.dp.toPx(),
+                    width = 1.75.dp.toPx(),
                     cap = StrokeCap.Round,
                     join = StrokeJoin.Round
                 )
             )
+        }
+    }
+}
+
+@Preview(name = "Streak Tile - 3 States Dark", showBackground = true, backgroundColor = 0xFF000000)
+@Composable
+private fun StreakTileStatesDarkPreview() {
+    GetFitTheme {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AnimatedThunderbolt(stage = 1, isLoggedToday = false)
+            AnimatedThunderbolt(stage = 1, isLoggedToday = true)
+            AnimatedThunderbolt(stage = 3, isLoggedToday = true)
         }
     }
 }

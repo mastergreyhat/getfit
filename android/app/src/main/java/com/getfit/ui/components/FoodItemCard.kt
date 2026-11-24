@@ -14,8 +14,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.getfit.data.entity.FoodItem
@@ -127,46 +130,23 @@ fun FoodItemCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                // Nutritional Macros pill row
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                // Nutritional Macros line (monochrome hierarchy matching Meal Plans)
+                val cal = food.caloriesPer100g.toInt()
+                val kcalUnit = if (isPiece) " kcal/piece" else " kcal"
+                Text(
+                    text = buildAnnotatedString {
+                        withStyle(SpanStyle(color = GetFitTheme.colors.textPrimary, fontWeight = FontWeight.SemiBold)) {
+                            append("$cal")
+                        }
+                        append("$kcalUnit · P ${food.proteinPer100g}g · C ${food.carbsPer100g}g · F ${food.fatPer100g}g")
+                    },
+                    style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
+                    color = GetFitTheme.colors.textSecondary,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 4.dp)
-                ) {
-                    val cal = food.caloriesPer100g.toInt()
-                    Text(
-                        text = if (isPiece) "$cal kcal/piece" else "$cal kcal",
-                        style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        softWrap = false,
-                        color = GetFitTheme.colors.textPrimary
-                    )
-                    Text(
-                        text = "P: ${food.proteinPer100g}g",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        softWrap = false,
-                        color = GetFitTheme.colors.protein
-                    )
-                    Text(
-                        text = "C: ${food.carbsPer100g}g",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        softWrap = false,
-                        color = GetFitTheme.colors.carbs
-                    )
-                    Text(
-                        text = "F: ${food.fatPer100g}g",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        softWrap = false,
-                        color = GetFitTheme.colors.fat
-                    )
-                }
+                )
             }
 
             Row(

@@ -146,7 +146,7 @@ fun GfBottomBar(
 @Preview(name = "GfBottomBar - Dark", showBackground = true, backgroundColor = 0xFF000000)
 @Composable
 private fun GfBottomBarDarkPreview() {
-    GetFitTheme(themeMode = "DARK") {
+    GetFitTheme {
         Box(modifier = Modifier.padding(20.dp), contentAlignment = Alignment.BottomCenter) {
             val sampleItems = listOf(
                 GfBottomNavItem("home", "Home", Icons.Default.Home),
@@ -156,23 +156,6 @@ private fun GfBottomBarDarkPreview() {
                 GfBottomNavItem("profile", "Profile", Icons.Default.Person)
             )
             GfBottomBar(items = sampleItems, selectedIndex = 0, onItemSelected = {})
-        }
-    }
-}
-
-@Preview(name = "GfBottomBar - Light", showBackground = true, backgroundColor = 0xFFF7F6F2)
-@Composable
-private fun GfBottomBarLightPreview() {
-    GetFitTheme(themeMode = "LIGHT") {
-        Box(modifier = Modifier.padding(20.dp), contentAlignment = Alignment.BottomCenter) {
-            val sampleItems = listOf(
-                GfBottomNavItem("home", "Home", Icons.Default.Home),
-                GfBottomNavItem("food", "Nutrition", Icons.Default.Restaurant),
-                GfBottomNavItem("workout", "Workout", Icons.Default.FitnessCenter),
-                GfBottomNavItem("analytics", "Analytics", Icons.Default.Analytics),
-                GfBottomNavItem("profile", "Profile", Icons.Default.Person)
-            )
-            GfBottomBar(items = sampleItems, selectedIndex = 2, onItemSelected = {})
         }
     }
 }

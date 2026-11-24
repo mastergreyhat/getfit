@@ -19,20 +19,16 @@ import androidx.compose.ui.Modifier
 import com.getfit.notification.NotificationHelper
 import com.getfit.ui.theme.GetFitTheme
 import com.getfit.ui.navigation.GetFitNavHost
-import com.getfit.ui.util.ThemePreferences
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setOptimalDisplayRefreshRate()
-        ThemePreferences.init(this)
         NotificationHelper.createNotificationChannels(this)
 
         setContent {
-            val themeMode by ThemePreferences.themeMode.collectAsState()
-
-            GetFitTheme(themeMode = themeMode) {
+            GetFitTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

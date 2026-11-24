@@ -65,33 +65,7 @@ fun GfBottomSheet(
 @Preview(name = "GfBottomSheet - Dark", showBackground = true, backgroundColor = 0xFF000000)
 @Composable
 private fun GfBottomSheetDarkPreview() {
-    GetFitTheme(themeMode = "DARK") {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-                .background(GetFitTheme.colors.surface1)
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(width = 38.dp, height = 4.dp)
-                    .clip(CircleShape)
-                    .background(GetFitTheme.colors.hairline.copy(alpha = 0.4f))
-            )
-            GfSectionHeader(title = "Log Set", action = null)
-            GfTextField(value = "80", onValueChange = {}, label = "Weight (kg)")
-            GfPrimaryButton(text = "Save Set", onClick = {})
-        }
-    }
-}
-
-@Preview(name = "GfBottomSheet - Light", showBackground = true, backgroundColor = 0xFFF7F6F2)
-@Composable
-private fun GfBottomSheetLightPreview() {
-    GetFitTheme(themeMode = "LIGHT") {
+    GetFitTheme {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

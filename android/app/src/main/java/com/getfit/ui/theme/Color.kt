@@ -19,20 +19,6 @@ val DarkAccent = Color(0xFFC6F432) // Electric lime
 val DarkOnAccent = Color(0xFF0A0A0A)
 
 // ==========================================
-// Warm & Clean Light Palette Tokens
-// ==========================================
-val LightBackground = Color(0xFFF7F6F2)
-val LightSurface1 = Color(0xFFFFFFFF)
-val LightSurface2 = Color(0xFFF1F0EB)
-val LightSurface3 = Color(0xFFE8E6E1)
-val LightHairline = Color(0x14000000) // Black at 8% alpha
-val LightTextPrimary = Color(0xFF0F0E0C)
-val LightTextSecondary = Color(0xFF6B6760)
-val LightTextTertiary = Color(0xFFA8A49F)
-val LightAccent = Color(0xFF15803D)
-val LightOnAccent = Color(0xFFFFFFFF)
-
-// ==========================================
 // Nutritional Macros (Calibrated & ~15% Desaturated)
 // ==========================================
 val MacroCalories = Color(0xFFDF6826)
@@ -54,9 +40,6 @@ val Orange80 = Color(0xFFFFCC80)
 val Orange40 = Color(0xFFEF6C00)
 val Gray10 = DarkSurface1
 val Gray20 = DarkSurface2
-val Gray90 = LightSurface3
-val Gray95 = LightBackground
-val Gray99 = LightSurface1
 val Red80 = Color(0xFFFFB4AB)
 val Red40 = Color(0xFFDC2626)
 
@@ -88,7 +71,6 @@ val SemanticSuccess = DarkAccent
 val SemanticWarning = Color(0xFFEAB308)
 val SemanticDanger = Color(0xFFEF4444)
 val SemanticStreakGlowDark = Color(0x33C6F432) // 20% alpha electric lime
-val SemanticStreakGlowLight = Color(0x3315803D)
 
 // ==========================================
 // Custom GetFitColors Data Class
@@ -140,30 +122,6 @@ val DarkGetFitColors = GetFitColors(
     danger = SemanticDanger,
     streakGlow = SemanticStreakGlowDark,
     isDark = true
-)
-
-val LightGetFitColors = GetFitColors(
-    background = LightBackground,
-    surface1 = LightSurface1,
-    surface2 = LightSurface2,
-    surface3 = LightSurface3,
-    hairline = LightHairline,
-    textPrimary = LightTextPrimary,
-    textSecondary = LightTextSecondary,
-    textTertiary = LightTextTertiary,
-    accent = LightAccent,
-    onAccent = LightOnAccent,
-    calories = MacroCalories,
-    protein = MacroProtein,
-    carbs = MacroCarbs,
-    fat = MacroFat,
-    water = MacroWater,
-    fiber = LightAccent,
-    success = LightAccent,
-    warning = SemanticWarning,
-    danger = SemanticDanger,
-    streakGlow = SemanticStreakGlowLight,
-    isDark = false
 )
 
 val LocalGetFitColors = staticCompositionLocalOf<GetFitColors> {

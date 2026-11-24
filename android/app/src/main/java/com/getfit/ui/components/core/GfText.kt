@@ -1,25 +1,36 @@
 package com.getfit.ui.components.core
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -228,78 +239,79 @@ fun GfSectionHeader(
 
 /**
  * Theme-matched GetFit brand mark + wordmark.
- * Renders a crisp vector ring + pulse mark in [GetFitTheme.colors.accent] and [GetFitTheme.colors.textPrimary]
- * alongside the bold Manrope "GetFit" wordmark.
+ * Renders an app-icon rounded square filled with [GetFitTheme.colors.accent] and a centered pulse
+ * in [GetFitTheme.colors.onAccent] alongside the ExtraBold "GetFit" wordmark.
  */
 @Composable
 fun GfBrandLogo(
     modifier: Modifier = Modifier,
-    iconSize: Dp = 28.dp,
+    iconSize: Dp = 30.dp,
     textStyle: TextStyle = MaterialTheme.typography.titleLarge
 ) {
     val accent = GetFitTheme.colors.accent
-    val hairline = GetFitTheme.colors.hairline
+    val onAccent = GetFitTheme.colors.onAccent
     val primary = GetFitTheme.colors.textPrimary
+
+    var hasAnimated by rememberSaveable { mutableStateOf(false) }
+    val scale = remember { Animatable(if (hasAnimated) 1f else 0.85f) }
+    LaunchedEffect(Unit) {
+        if (!hasAnimated) {
+            hasAnimated = true
+            scale.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = 0.6f,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
+        }
+    }
 
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Canvas(modifier = Modifier.size(iconSize)) {
-            val strokeW = size.minDimension * 0.11f
-            val inset = strokeW / 2f
-            val arcSize = size.copy(
-                width = size.width - strokeW,
-                height = size.height - strokeW
-            )
-            // Subtle hairline ring
-            drawArc(
-                color = hairline,
-                startAngle = 0f,
-                sweepAngle = 360f,
-                useCenter = false,
-                topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
-                size = arcSize,
-                style = Stroke(width = strokeW)
-            )
-            // 270-degree accent progress arc starting at 12 o'clock
-            drawArc(
-                color = accent,
-                startAngle = -90f,
-                sweepAngle = 270f,
-                useCenter = false,
-                topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
-                size = arcSize,
-                style = Stroke(width = strokeW, cap = StrokeCap.Round)
-            )
-            // Geometric pulse line in center
-            val w = size.width
-            val h = size.height
-            val pulse = Path().apply {
-                moveTo(w * 0.24f, h * 0.52f)
-                lineTo(w * 0.36f, h * 0.52f)
-                lineTo(w * 0.44f, h * 0.30f)
-                lineTo(w * 0.53f, h * 0.72f)
-                lineTo(w * 0.62f, h * 0.40f)
-                lineTo(w * 0.68f, h * 0.52f)
-                lineTo(w * 0.78f, h * 0.52f)
-            }
-            drawPath(
-                path = pulse,
-                color = primary,
-                style = Stroke(
-                    width = strokeW * 0.9f,
-                    cap = StrokeCap.Round,
-                    join = StrokeJoin.Round
+        Box(
+            modifier = Modifier
+                .size(iconSize)
+                .graphicsLayer {
+                    scaleX = scale.value
+                    scaleY = scale.value
+                }
+                .clip(RoundedCornerShape(9.dp))
+                .background(accent),
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val w = size.width
+                val h = size.height
+                val strokeW = size.minDimension * 0.08f
+                val pulse = Path().apply {
+                    moveTo(w * 0.22f, h * 0.52f)
+                    lineTo(w * 0.35f, h * 0.52f)
+                    lineTo(w * 0.43f, h * 0.28f)
+                    lineTo(w * 0.53f, h * 0.72f)
+                    lineTo(w * 0.62f, h * 0.38f)
+                    lineTo(w * 0.69f, h * 0.52f)
+                    lineTo(w * 0.78f, h * 0.52f)
+                }
+                drawPath(
+                    path = pulse,
+                    color = onAccent,
+                    style = Stroke(
+                        width = strokeW,
+                        cap = StrokeCap.Round,
+                        join = StrokeJoin.Round
+                    )
                 )
-            )
+            }
         }
         Text(
             text = "GetFit",
             style = textStyle.copy(
                 fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-0.5).sp
+                letterSpacing = (-0.3).sp
             ),
             color = primary,
             maxLines = 1,
@@ -308,22 +320,18 @@ fun GfBrandLogo(
     }
 }
 
-@Preview(name = "GfText - Dark", showBackground = true, backgroundColor = 0xFF000000)
+@Preview(name = "GfBrandLogo - Dark", showBackground = true, backgroundColor = 0xFF000000)
 @Composable
-private fun GfTextDarkPreview() {
-    GetFitTheme(themeMode = "DARK") {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            GfOverline("Daily Calorie Target")
-            GfBigNumber(value = 2450, unit = "kcal")
-            GfSectionHeader(title = "Weekly Volume", action = "See All", onActionClick = {})
-        }
+private fun GfBrandLogoDarkPreview() {
+    GetFitTheme {
+        GfBrandLogo(modifier = Modifier.padding(16.dp))
     }
 }
 
-@Preview(name = "GfText - Light", showBackground = true, backgroundColor = 0xFFF7F6F2)
+@Preview(name = "GfText - Dark", showBackground = true, backgroundColor = 0xFF000000)
 @Composable
-private fun GfTextLightPreview() {
-    GetFitTheme(themeMode = "LIGHT") {
+private fun GfTextDarkPreview() {
+    GetFitTheme {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             GfOverline("Daily Calorie Target")
             GfBigNumber(value = 2450, unit = "kcal")

@@ -195,21 +195,7 @@ fun GfTextButton(
 @Preview(name = "GfButtons - Dark", showBackground = true, backgroundColor = 0xFF000000)
 @Composable
 private fun GfButtonsDarkPreview() {
-    GetFitTheme(themeMode = "DARK") {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            GfPrimaryButton(text = "Log Workout", onClick = {})
-            GfPrimaryButton(text = "Saving...", isLoading = true, onClick = {})
-            GfSecondaryButton(text = "Cancel", onClick = {})
-            GfSecondaryButton(text = "Loading", isLoading = true, onClick = {})
-            GfTextButton(text = "Skip for Now", onClick = {})
-        }
-    }
-}
-
-@Preview(name = "GfButtons - Light", showBackground = true, backgroundColor = 0xFFF7F6F2)
-@Composable
-private fun GfButtonsLightPreview() {
-    GetFitTheme(themeMode = "LIGHT") {
+    GetFitTheme {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             GfPrimaryButton(text = "Log Workout", onClick = {})
             GfPrimaryButton(text = "Saving...", isLoading = true, onClick = {})

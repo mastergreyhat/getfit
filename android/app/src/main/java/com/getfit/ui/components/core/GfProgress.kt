@@ -109,39 +109,18 @@ fun GfRing(
 
             // 2. Animated progress sweep rotated to start at 12 o'clock (-90 degrees)
             if (animatedProgress > 0f) {
-                val sweepAngle = 360f * animatedProgress
+                val sweepAngle = if (isSolid) 360f else 360f * animatedProgress
                 rotate(-90f, pivot = center) {
-                    if (isSolid) {
-                        // Solid-color arc when progress >= 1f or overGoal: completely seamless
-                        drawArc(
-                            color = activeColor,
-                            startAngle = 0f,
-                            sweepAngle = 360f,
-                            useCenter = false,
-                            style = Stroke(
-                                width = strokePx,
-                                cap = StrokeCap.Round
-                            )
+                    drawArc(
+                        color = activeColor,
+                        startAngle = 0f,
+                        sweepAngle = sweepAngle,
+                        useCenter = false,
+                        style = Stroke(
+                            width = strokePx,
+                            cap = StrokeCap.Round
                         )
-                    } else {
-                        // For partial progress, identical first and last color stops prevent any visible seam
-                        val sweepBrush = Brush.sweepGradient(
-                            0.0f to activeColor,
-                            (clampedProgress * 0.5f) to activeColor.copy(alpha = 0.85f),
-                            clampedProgress to activeColor,
-                            center = center
-                        )
-                        drawArc(
-                            brush = sweepBrush,
-                            startAngle = 0f,
-                            sweepAngle = sweepAngle,
-                            useCenter = false,
-                            style = Stroke(
-                                width = strokePx,
-                                cap = StrokeCap.Round
-                            )
-                        )
-                    }
+                    )
                 }
             }
         }
@@ -237,31 +216,7 @@ fun MacroStat(
 @Preview(name = "GfProgress - Dark", showBackground = true, backgroundColor = 0xFF000000)
 @Composable
 private fun GfProgressDarkPreview() {
-    GetFitTheme(themeMode = "DARK") {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-            GfProgressBar(progress = 0.65f)
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                GfRing(progress = 0.72f) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        GfBigNumber(value = 72, unit = "%", style = MaterialTheme.typography.titleLarge)
-                        Text("Daily Goal", style = MaterialTheme.typography.labelSmall, color = GetFitTheme.colors.textSecondary)
-                    }
-                }
-                GfRing(progress = 1.15f, overGoal = true) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        GfBigNumber(value = 115, unit = "%", style = MaterialTheme.typography.titleLarge)
-                        Text("Over Goal", style = MaterialTheme.typography.labelSmall, color = GetFitTheme.colors.warning)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Preview(name = "GfProgress - Light", showBackground = true, backgroundColor = 0xFFF7F6F2)
-@Composable
-private fun GfProgressLightPreview() {
-    GetFitTheme(themeMode = "LIGHT") {
+    GetFitTheme {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
             GfProgressBar(progress = 0.65f)
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {

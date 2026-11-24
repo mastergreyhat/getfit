@@ -49,12 +49,12 @@ fun GfCheckBadge(
     size: Dp = 22.dp
 ) {
     val bgColor by animateColorAsState(
-        targetValue = if (checked) GetFitTheme.colors.accent.copy(alpha = 0.14f) else Color.Transparent,
+        targetValue = if (checked) GetFitTheme.colors.accent.copy(alpha = 0.20f) else Color.Transparent,
         animationSpec = tween(durationMillis = 150),
         label = "check_badge_bg"
     )
     val borderColor by animateColorAsState(
-        targetValue = if (checked) Color.Transparent else GetFitTheme.colors.hairline,
+        targetValue = if (checked) GetFitTheme.colors.accent.copy(alpha = 0.35f) else GetFitTheme.colors.hairline,
         animationSpec = tween(durationMillis = 150),
         label = "check_badge_border"
     )
@@ -64,10 +64,7 @@ fun GfCheckBadge(
             .size(size)
             .clip(CircleShape)
             .background(bgColor)
-            .then(
-                if (!checked) Modifier.border(1.5.dp, borderColor, CircleShape)
-                else Modifier
-            )
+            .border(if (checked) 1.dp else 1.5.dp, borderColor, CircleShape)
             .semantics {
                 contentDescription = if (checked) "Logged" else "Not logged"
             },
@@ -82,7 +79,7 @@ fun GfCheckBadge(
                 imageVector = Icons.Rounded.Check,
                 contentDescription = "Logged",
                 tint = GetFitTheme.colors.accent,
-                modifier = Modifier.size(size * 0.62f)
+                modifier = Modifier.size(size * 0.66f)
             )
         }
     }
@@ -126,23 +123,7 @@ fun GfStatusPill(
 @Preview(showBackground = true, backgroundColor = 0xFF0A0A0A)
 @Composable
 private fun GfStatusDarkPreview() {
-    GetFitTheme(darkTheme = true) {
-        Row(
-            modifier = Modifier.padding(Dimens.md),
-            horizontalArrangement = Arrangement.spacedBy(Dimens.md),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            GfCheckBadge(checked = true)
-            GfCheckBadge(checked = false)
-            GfStatusPill(text = "Logged")
-        }
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF)
-@Composable
-private fun GfStatusLightPreview() {
-    GetFitTheme(darkTheme = false) {
+    GetFitTheme {
         Row(
             modifier = Modifier.padding(Dimens.md),
             horizontalArrangement = Arrangement.spacedBy(Dimens.md),
