@@ -1,9 +1,13 @@
 package com.getfit.ui.navigation
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,8 +29,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -41,6 +47,7 @@ import com.getfit.R
 import com.getfit.ui.components.ThemeCapsuleToggle
 import com.getfit.ui.components.core.GfBottomBar
 import com.getfit.ui.components.core.GfBottomNavItem
+import com.getfit.ui.components.core.GfBrandLogo
 import com.getfit.ui.screens.*
 import com.getfit.ui.theme.Dimens
 import com.getfit.ui.theme.GetFitTheme
@@ -116,14 +123,16 @@ fun GetFitNavHost(
         )
     }
 
+    val dashboardViewModel: DashboardViewModel = viewModel()
     val foodViewModel: FoodViewModel = viewModel()
     val workoutViewModel: WorkoutViewModel = viewModel()
+    val profileViewModel: ProfileViewModel = viewModel()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
     // Check if bottom bar should be visible
-    val isBottomBarVisible = bottomNavItems.any { it.route == currentRoute }
+    val isBottomBarVisible = remember(currentRoute) { bottomNavItems.any { it.route == currentRoute } }
 
     Scaffold(
         modifier = modifier,
@@ -138,14 +147,23 @@ fun GetFitNavHost(
             }
         }
     ) { innerPadding ->
+        val focusManager = LocalFocusManager.current
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
+                .imePadding()
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = { focusManager.clearFocus() })
+                }
         ) {
             NavHost(
                 navController = navController,
                 startDestination = startDestination,
+                enterTransition = { fadeIn(animationSpec = tween(150)) },
+                exitTransition = { fadeOut(animationSpec = tween(120)) },
+                popEnterTransition = { fadeIn(animationSpec = tween(150)) },
+                popExitTransition = { fadeOut(animationSpec = tween(120)) },
                 modifier = Modifier.fillMaxSize()
             ) {
             composable(Screen.OnboardingWelcome.route) {
@@ -203,11 +221,20 @@ fun GetFitNavHost(
             }
 
             composable(Screen.Dashboard.route) {
-                val dashboardViewModel: DashboardViewModel = viewModel()
                 DashboardScreen(
                     viewModel = dashboardViewModel,
                     onNavigateToFood = {
                         foodViewModel.resetToDiary()
+                        navController.navigate(Screen.Food.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onNavigateToHydration = {
+                        foodViewModel.navigateToHydration()
                         navController.navigate(Screen.Food.route) {
                             popUpTo(navController.graph.findStartDestination().id) {
                                 saveState = true
@@ -244,6 +271,9 @@ fun GetFitNavHost(
                     viewModel = foodViewModel,
                     onNavigateToAddCustomFood = {
                         navController.navigate(Screen.AddCustomFood.route)
+                    },
+                    onNavigateToAuth = {
+                        navController.navigate(Screen.Auth.route)
                     }
                 )
             }
@@ -279,11 +309,10 @@ fun GetFitNavHost(
                     navArgument("dayName") { type = NavType.StringType }
                 )
             ) { backStackEntry ->
-                val workoutViewModel: WorkoutViewModel = viewModel()
                 val exerciseId = backStackEntry.arguments?.getLong("exerciseId") ?: 0L
                 val exerciseNameRaw = backStackEntry.arguments?.getString("exerciseName") ?: ""
                 val muscleGroupRaw = backStackEntry.arguments?.getString("muscleGroup") ?: ""
-                val sets = backStackEntry.arguments?.getInt("sets") ?: 4
+                val sets = backStackEntry.arguments?.getInt("sets") ?: 3
                 val repsRaw = backStackEntry.arguments?.getString("reps") ?: "8-10"
                 val dayNameRaw = backStackEntry.arguments?.getString("dayName") ?: "Workout"
 
@@ -307,7 +336,6 @@ fun GetFitNavHost(
             }
 
             composable(Screen.Profile.route) {
-                val profileViewModel: ProfileViewModel = viewModel()
                 ProfileScreen(
                     viewModel = profileViewModel,
                     onNavigateToAuth = {
@@ -423,12 +451,9 @@ private fun CleanTopHeader(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (currentRoute == Screen.Dashboard.route || currentRoute == null) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_getfit_logo),
-                        contentDescription = "GetFit",
-                        colorFilter = ColorFilter.tint(GetFitTheme.colors.textPrimary),
-                        modifier = Modifier.height(28.dp),
-                        contentScale = ContentScale.Fit
+                    GfBrandLogo(
+                        iconSize = 26.dp,
+                        textStyle = MaterialTheme.typography.titleLarge
                     )
                 } else {
                     Text(
@@ -439,29 +464,41 @@ private fun CleanTopHeader(
                     )
                 }
 
-                // Secondary Analytics Button
+                // Analytics Pill (matches GfBrandLogo & GfBottomBar family)
                 Surface(
                     shape = RoundedCornerShape(100.dp),
-                    color = GetFitTheme.colors.surface2,
+                    color = GetFitTheme.colors.surface1,
                     border = BorderStroke(1.dp, GetFitTheme.colors.hairline),
                     modifier = Modifier.clickable { onNavigateToAnalytics() }
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = Dimens.md, vertical = 6.dp),
+                        modifier = Modifier.padding(start = 6.dp, end = Dimens.md, top = 5.dp, bottom = 5.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.TrendingUp,
-                            contentDescription = "Analytics",
-                            tint = GetFitTheme.colors.textPrimary,
-                            modifier = Modifier.size(13.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(22.dp)
+                                .background(
+                                    color = GetFitTheme.colors.accent.copy(alpha = 0.14f),
+                                    shape = androidx.compose.foundation.shape.CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                                contentDescription = "Analytics",
+                                tint = GetFitTheme.colors.accent,
+                                modifier = Modifier.size(13.dp)
+                            )
+                        }
                         Text(
                             text = "Analytics",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium,
-                            color = GetFitTheme.colors.textPrimary
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GetFitTheme.colors.textPrimary,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }

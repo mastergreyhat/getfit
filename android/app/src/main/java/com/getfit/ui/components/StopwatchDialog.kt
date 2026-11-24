@@ -471,11 +471,6 @@ private fun SaveRecordPromptDialog(
             ) {
                 Text("Save Record", fontWeight = FontWeight.Bold)
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
         }
     )
 }

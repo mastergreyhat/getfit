@@ -44,6 +44,11 @@ export default {
       return handleNutritionSearch(request, env, ctx, url);
     }
 
+    // 3b. AI Pantry Meal Plan Endpoint (Logged-in users only)
+    if (path === "/api/meal-plan" && request.method === "POST") {
+      return handleGenerateMealPlan(request, env);
+    }
+
     // 4. Authentication Endpoints
     if (path === "/api/auth/send-otp" && request.method === "POST") {
       return handleSendOtp(request, env);
@@ -219,7 +224,7 @@ async function handleSendOtp(request, env) {
       });
       const gasText = await gasRes.text();
       let gasJson = {};
-      try { gasJson = JSON.parse(gasText); } catch (_) {}
+      try { gasJson = JSON.parse(gasText); } catch (_) { }
       if (gasJson.success || gasRes.ok) {
         emailDelivered = true;
       } else {
@@ -457,7 +462,7 @@ async function handleNutritionSearch(request, env, ctx, url) {
     try {
       const body = await request.json();
       query = body.query || body.q;
-    } catch (_) {}
+    } catch (_) { }
   }
 
   const trimmed = (query || "").trim();
@@ -740,4 +745,114 @@ async function authenticateRequest(request, env) {
   const token = authHeader.substring(7).trim();
   if (!token) return null;
   return await verifyJwt(token, env.JWT_SECRET);
+}
+
+/* ========================================================================== */
+/*                       AI PANTRY MEAL PLAN GENERATOR                        */
+/* ========================================================================== */
+
+async function handleGenerateMealPlan(request, env) {
+  const user = await authenticateRequest(request, env);
+  if (!user) {
+    return jsonResponse({ error: "Please sign in to use AI Meal Plans." }, 401);
+  }
+
+  if (env.DB) {
+    const allowed = await checkRateLimit(env.DB, `mealplan_user:${user.sub}`, 10, 60 * 1000);
+    if (!allowed) {
+      return jsonResponse({ error: "Too many meal plan requests. Please wait a minute." }, 429);
+    }
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch (_) {
+    return jsonResponse({ error: "Invalid JSON body" }, 400);
+  }
+
+  const items = String(body.items || "").trim();
+  if (!items || items.length < 3) {
+    return jsonResponse({ error: "Please enter the ingredients you have at home." }, 400);
+  }
+  if (items.length > 600) {
+    return jsonResponse({ error: "Ingredients list exceeds 600 characters limit." }, 400);
+  }
+
+  const targetCalories = Math.max(1000, Math.min(6000, Number(body.targetCalories) || 2200));
+  const targetProtein = Math.max(30, Math.min(400, Number(body.targetProtein) || 130));
+  const targetCarbs = Math.max(30, Math.min(700, Number(body.targetCarbs) || 250));
+  const targetFat = Math.max(20, Math.min(250, Number(body.targetFat) || 65));
+  const goal = String(body.goal || "Balanced Fitness").slice(0, 60);
+
+  const apiKey = env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return jsonResponse({ error: "GEMINI_API_KEY environment secret is not configured" }, 500);
+  }
+
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const promptText = `Act as an expert sports nutritionist. The user has these ingredients at home:
+"${items}"
+
+User's Profile Goal: ${goal}
+Daily Targets: ~${targetCalories} kcal, ~${targetProtein}g protein, ~${targetCarbs}g carbs, ~${targetFat}g fat.
+
+Create a complete, practical 1-day meal plan (Breakfast, Lunch, Dinner, Snacks) using primarily the inputted ingredients (you may assume basic kitchen staples like water, salt, spices, and minimal cooking oil).
+Rules:
+1. Tailor macro distribution and portion sizes to support the user's "${goal}" goal while hitting the daily targets (~${targetCalories} kcal, ~${targetProtein}g protein, ~${targetCarbs}g carbs, ~${targetFat}g fat) across the 4 meals.
+2. Express ALL ingredient weights and portions in metric grams (g) or milliliters (ml) — e.g. "Chicken breast (180g)", "Rolled oats (60g)", "Whole eggs (2 eggs / 100g)", "Milk (250ml)". NEVER use ounces (oz), pounds (lb), or cups.
+
+Return ONLY valid JSON matching this exact schema (no markdown or extra text):
+{
+  "summary": "Short 1-sentence overview of how the macros support the ${goal} goal",
+  "totalCalories": 2200,
+  "totalProtein": 150,
+  "totalCarbs": 230,
+  "totalFat": 65,
+  "meals": [
+    {
+      "mealType": "Breakfast",
+      "title": "Short Meal Title",
+      "calories": 550,
+      "protein": 38,
+      "carbs": 58,
+      "fat": 16,
+      "items": ["Rolled oats (60g)", "Whole eggs (2 eggs / 100g)"]
+    }
+  ]
+}
+Ensure "meals" has exactly 4 entries in order: Breakfast, Lunch, Dinner, Snacks.`;
+
+  try {
+    const response = await fetch(geminiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: {
+          temperature: 0.3,
+          responseMimeType: "application/json",
+          thinkingConfig: { thinkingBudget: 0 }
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return jsonResponse({ error: "Gemini API error", status: response.status, details: errText }, response.status);
+    }
+
+    const data = await response.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText.trim());
+    } catch (_) {
+      return jsonResponse({ error: "Failed to parse AI meal plan response." }, 502);
+    }
+
+    return jsonResponse(parsed, 200);
+  } catch (err) {
+    return jsonResponse({ error: "Meal plan generation failed", details: err.message }, 500);
+  }
 }

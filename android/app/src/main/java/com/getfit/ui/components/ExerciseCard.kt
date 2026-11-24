@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -19,6 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.getfit.data.entity.Exercise
+import com.getfit.ui.components.core.GfCheckBadge
 import com.getfit.ui.theme.GetFitTheme
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -83,12 +82,7 @@ fun ExerciseCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         if (isCompleted) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = "Completed",
-                                tint = GetFitTheme.colors.success,
-                                modifier = Modifier.size(16.dp)
-                            )
+                            GfCheckBadge(checked = true, size = 18.dp)
                         }
                     }
                     Text(
@@ -122,14 +116,10 @@ fun ExerciseCard(
                         }
                     }
 
-                    // Compound vs Isolation badge (always displayed)
+                    // Compound vs Isolation badge (uniform GetFitTheme tokens)
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = if (exercise.isCompound) {
-                            MaterialTheme.colorScheme.tertiaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        }
+                        color = GetFitTheme.colors.surface2
                     ) {
                         Text(
                             text = if (exercise.isCompound) "Compound" else "Isolation",
@@ -138,11 +128,7 @@ fun ExerciseCard(
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             softWrap = false,
-                            color = if (exercise.isCompound) {
-                                MaterialTheme.colorScheme.onTertiaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
+                            color = GetFitTheme.colors.textPrimary
                         )
                     }
                 }

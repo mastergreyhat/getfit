@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
@@ -62,6 +61,7 @@ import kotlin.math.abs
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     onNavigateToFood: () -> Unit,
+    onNavigateToHydration: () -> Unit = onNavigateToFood,
     onNavigateToWorkout: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -105,7 +105,6 @@ fun DashboardScreen(
             .fillMaxSize()
             .background(GetFitTheme.colors.background)
             .verticalScroll(scrollState)
-            .gfBottomBarPadding()
             .padding(horizontal = Dimens.screenGutter, vertical = Dimens.xl),
         verticalArrangement = Arrangement.spacedBy(Dimens.xxl)
     ) {
@@ -171,86 +170,107 @@ fun DashboardScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(Dimens.lg))
+            Spacer(modifier = Modifier.height(Dimens.md))
 
-            // Central Calorie Ring Hero
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
+            // Balanced Hero: Macros vertically centered against the Ring itself, chunky ring text
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dimens.xs, vertical = Dimens.xs),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.xl),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                GfRing(
-                    progress = calProgress,
-                    size = 208.dp,
-                    strokeWidth = 12.dp,
-                    overGoal = isOverGoal
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                    GfRing(
+                        progress = calProgress,
+                        size = 168.dp,
+                        strokeWidth = 12.dp,
+                        overGoal = isOverGoal
                     ) {
-                        GfBigNumber(
-                            value = remainingKcal,
-                            hero = true,
-                            color = if (isOverGoal) GetFitTheme.colors.warning else GetFitTheme.colors.textPrimary,
-                            style = MaterialTheme.typography.displayLarge.copy(
-                                fontSize = 52.sp,
-                                lineHeight = 56.sp
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            GfBigNumber(
+                                value = remainingKcal,
+                                hero = true,
+                                color = if (isOverGoal) GetFitTheme.colors.warning else GetFitTheme.colors.textPrimary,
+                                style = MaterialTheme.typography.displayLarge.copy(
+                                    fontSize = 46.sp,
+                                    lineHeight = 50.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             )
-                        )
-                        Text(
-                            text = if (isOverGoal) "kcal over" else "kcal left",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (isOverGoal) GetFitTheme.colors.warning else GetFitTheme.colors.textSecondary,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+                            Text(
+                                text = if (isOverGoal) "kcal over" else "kcal left",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (isOverGoal) GetFitTheme.colors.warning else GetFitTheme.colors.textSecondary,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
                     }
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(0.95f)
+                        .padding(end = Dimens.xs),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.lg)
+                ) {
+                    val proteinTarget = uiState.userProfile.dailyProteinTarget.toFloat().coerceAtLeast(100f)
+                    val carbsTarget = uiState.userProfile.dailyCarbsTarget.toFloat().coerceAtLeast(150f)
+                    val fatTarget = uiState.userProfile.dailyFatTarget.toFloat().coerceAtLeast(40f)
+
+                    MacroStat(
+                        modifier = Modifier.fillMaxWidth(),
+                        label = "Protein",
+                        current = uiState.totalProtein.toFloat(),
+                        target = proteinTarget,
+                        color = GetFitTheme.colors.protein,
+                        inlineHeader = true
+                    )
+                    MacroStat(
+                        modifier = Modifier.fillMaxWidth(),
+                        label = "Carbs",
+                        current = uiState.totalCarbs.toFloat(),
+                        target = carbsTarget,
+                        color = GetFitTheme.colors.carbs,
+                        inlineHeader = true
+                    )
+                    MacroStat(
+                        modifier = Modifier.fillMaxWidth(),
+                        label = "Fat",
+                        current = uiState.totalFat.toFloat(),
+                        target = fatTarget,
+                        color = GetFitTheme.colors.fat,
+                        inlineHeader = true
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(Dimens.sm))
+            Spacer(modifier = Modifier.height(Dimens.xs))
 
-            // Quiet secondary stats below ring: "{eaten} eaten · {goal} goal"
-            Text(
-                text = "${caloriesConsumed.toInt()} eaten · ${calorieTarget.toInt()} goal",
-                style = MaterialTheme.typography.bodySmall,
-                color = GetFitTheme.colors.textSecondary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(Dimens.lg))
-
-            // Under the ring: row of three compact macro stats (Protein, Carbs, Fat)
+            // Eaten / goal caption centered cleanly under the ring without shifting macro alignment
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Dimens.lg)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dimens.xs),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.xl)
             ) {
-                val proteinTarget = uiState.userProfile.dailyProteinTarget.toFloat().coerceAtLeast(100f)
-                val carbsTarget = uiState.userProfile.dailyCarbsTarget.toFloat().coerceAtLeast(150f)
-                val fatTarget = uiState.userProfile.dailyFatTarget.toFloat().coerceAtLeast(40f)
-
-                MacroStat(
-                    modifier = Modifier.weight(1f),
-                    label = "Protein",
-                    current = uiState.totalProtein.toFloat(),
-                    target = proteinTarget,
-                    color = GetFitTheme.colors.protein
+                Text(
+                    text = "${caloriesConsumed.toInt()} / ${calorieTarget.toInt()} kcal",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = GetFitTheme.colors.textSecondary,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.weight(1f)
                 )
-                MacroStat(
-                    modifier = Modifier.weight(1f),
-                    label = "Carbs",
-                    current = uiState.totalCarbs.toFloat(),
-                    target = carbsTarget,
-                    color = GetFitTheme.colors.carbs
-                )
-                MacroStat(
-                    modifier = Modifier.weight(1f),
-                    label = "Fat",
-                    current = uiState.totalFat.toFloat(),
-                    target = fatTarget,
-                    color = GetFitTheme.colors.fat
-                )
+                Spacer(modifier = Modifier.weight(0.95f))
             }
         }
 
@@ -386,10 +406,13 @@ fun DashboardScreen(
                                 .clip(CircleShape)
                                 .then(
                                     when {
-                                        day.isToday -> Modifier.background(GetFitTheme.colors.accent)
+                                        isStreak || day.isToday && isDone -> Modifier.background(GetFitTheme.colors.accent)
                                         isDone -> Modifier
                                             .background(GetFitTheme.colors.surface2)
                                             .border(1.dp, GetFitTheme.colors.accent, CircleShape)
+                                        day.isToday -> Modifier
+                                            .background(GetFitTheme.colors.surface3)
+                                            .border(1.dp, GetFitTheme.colors.textTertiary, CircleShape)
                                         else -> Modifier
                                             .background(Color.Transparent)
                                             .border(1.dp, GetFitTheme.colors.hairline, CircleShape)
@@ -397,28 +420,16 @@ fun DashboardScreen(
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (day.isToday) {
-                                Text(
-                                    text = day.dayNumber,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = GetFitTheme.colors.onAccent
-                                )
-                            } else if (isDone) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    tint = GetFitTheme.colors.accent,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                            } else {
-                                Text(
-                                    text = day.dayNumber,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Normal,
-                                    color = GetFitTheme.colors.textTertiary
-                                )
-                            }
+                            Text(
+                                text = day.dayNumber,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (isDone || day.isToday) FontWeight.Bold else FontWeight.Normal,
+                                color = when {
+                                    isStreak || (day.isToday && isDone) -> GetFitTheme.colors.onAccent
+                                    isDone || day.isToday -> GetFitTheme.colors.textPrimary
+                                    else -> GetFitTheme.colors.textTertiary
+                                }
+                            )
                         }
                     }
                 }
@@ -426,10 +437,11 @@ fun DashboardScreen(
         }
 
         // ==========================================
-        // 3. HYDRATION CARD
+        // 3. HYDRATION CARD (Tap -> Nutrition Diary Hydration)
         // ==========================================
         GfCard(
-            modifier = Modifier.gfEntrance(2)
+            modifier = Modifier.gfEntrance(2),
+            onClick = onNavigateToHydration
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -451,10 +463,11 @@ fun DashboardScreen(
                     )
                 }
 
-                GfSecondaryButton(
-                    text = "+250 ml",
-                    onClick = { viewModel.quickAddWater(250) },
-                    compact = true
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = "Modify hydration",
+                    tint = GetFitTheme.colors.textTertiary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
@@ -471,41 +484,64 @@ fun DashboardScreen(
         }
 
         // ==========================================
-        // 4. NEXT SCHEDULED MEAL CARD
+        // 4. MEAL STATUS CARD — dynamic per-meal logged state from diary
         // ==========================================
         GfCard(
             modifier = Modifier.gfEntrance(3),
             onClick = onNavigateToFood
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    GfOverline(text = "NEXT • ${if (uiState.nextMealTime.isNotBlank()) uiState.nextMealTime else "07:30"}")
-                    Spacer(modifier = Modifier.height(Dimens.xs))
-                    Text(
-                        text = if (uiState.nextMealTitle.isNotBlank()) uiState.nextMealTitle else "Next Meal",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = GetFitTheme.colors.textPrimary
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = if (uiState.nextMealSuggestion.isNotBlank()) uiState.nextMealSuggestion else "Tap to log this meal",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = GetFitTheme.colors.textSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = GetFitTheme.colors.textTertiary,
-                    modifier = Modifier.size(20.dp)
+            GfOverline(text = "TODAY'S MEALS")
+            Spacer(modifier = Modifier.height(Dimens.sm + 4.dp))
+
+            if (uiState.mealStatusList.none { it.isLogged }) {
+                Text(
+                    text = "No meals logged today",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = GetFitTheme.colors.textSecondary
                 )
+            } else {
+                Column {
+                    uiState.mealStatusList.forEachIndexed { index, ms ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 56.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            GfCheckBadge(checked = ms.isLogged)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = ms.mealType,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = if (ms.isLogged) GetFitTheme.colors.textPrimary else GetFitTheme.colors.textTertiary
+                                )
+                                Text(
+                                    text = if (ms.isLogged) ms.loggedSummary else "Not logged",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = GetFitTheme.colors.textSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(Dimens.sm))
+                            Text(
+                                text = ms.scheduledTime,
+                                style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
+                                color = GetFitTheme.colors.textTertiary
+                            )
+                        }
+                        if (index < uiState.mealStatusList.lastIndex) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 34.dp)
+                                    .height(1.dp)
+                                    .background(GetFitTheme.colors.hairline)
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -518,6 +554,8 @@ fun DashboardScreen(
             icon = Icons.Default.Restaurant,
             modifier = Modifier.gfEntrance(4)
         )
+
+        Spacer(modifier = Modifier.height(com.getfit.ui.components.core.gfBottomBarContentPadding()))
     }
 }
 
@@ -833,15 +871,21 @@ private fun ConsistencyCalendarDialog(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "$currentStreak Days",
+                                text = if (currentStreak == 1) "1 Day" else "$currentStreak Days",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = GetFitTheme.colors.textPrimary
+                                color = GetFitTheme.colors.textPrimary,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "Current Streak",
+                                text = "Streak",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = GetFitTheme.colors.textSecondary
+                                color = GetFitTheme.colors.textSecondary,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -856,15 +900,21 @@ private fun ConsistencyCalendarDialog(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "$bestStreak Days",
+                                text = if (bestStreak == 1) "1 Day" else "$bestStreak Days",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = GetFitTheme.colors.textPrimary
+                                color = GetFitTheme.colors.textPrimary,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "Best Streak",
+                                text = "Best",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = GetFitTheme.colors.textSecondary
+                                color = GetFitTheme.colors.textSecondary,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -882,12 +932,18 @@ private fun ConsistencyCalendarDialog(
                                 text = "$loggedDaysInDisplayedMonth / $daysInMonth",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = GetFitTheme.colors.textPrimary
+                                color = GetFitTheme.colors.textPrimary,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "Active Days",
+                                text = "Active",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = GetFitTheme.colors.textSecondary
+                                color = GetFitTheme.colors.textSecondary,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -945,38 +1001,31 @@ private fun ConsistencyCalendarDialog(
                                             .aspectRatio(1f)
                                             .padding(2.dp)
                                             .clip(CircleShape)
-                                            .background(
+                                            .then(
                                                 when {
-                                                    isStreak -> GetFitTheme.colors.accent
-                                                    isLogged -> GetFitTheme.colors.surface2
-                                                    isToday -> GetFitTheme.colors.surface3
-                                                    else -> Color.Transparent
+                                                    isStreak -> Modifier.background(GetFitTheme.colors.accent)
+                                                    isLogged -> Modifier
+                                                        .background(GetFitTheme.colors.surface2)
+                                                        .border(1.dp, GetFitTheme.colors.accent.copy(alpha = 0.6f), CircleShape)
+                                                    isToday -> Modifier
+                                                        .background(GetFitTheme.colors.surface3)
+                                                        .border(1.dp, GetFitTheme.colors.textTertiary, CircleShape)
+                                                    else -> Modifier.background(Color.Transparent)
                                                 }
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        if (isStreak) {
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
-                                                contentDescription = null,
-                                                tint = GetFitTheme.colors.onAccent,
-                                                modifier = Modifier.size(12.dp)
-                                            )
-                                        } else if (isLogged) {
-                                            Text(
-                                                text = "$dayNum",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = GetFitTheme.colors.textPrimary
-                                            )
-                                        } else {
-                                            Text(
-                                                text = "$dayNum",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-                                                color = if (isToday) GetFitTheme.colors.accent else GetFitTheme.colors.textTertiary
-                                            )
-                                        }
+                                        Text(
+                                            text = "$dayNum",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = if (isStreak || isLogged || isToday) FontWeight.Bold else FontWeight.Normal,
+                                            color = when {
+                                                isStreak -> GetFitTheme.colors.onAccent
+                                                isLogged -> GetFitTheme.colors.textPrimary
+                                                isToday -> GetFitTheme.colors.accent
+                                                else -> GetFitTheme.colors.textTertiary
+                                            }
+                                        )
                                     }
                                 } else {
                                     Spacer(
@@ -1004,27 +1053,29 @@ private fun ConsistencyCalendarDialog(
                                 .clip(CircleShape)
                                 .background(GetFitTheme.colors.accent)
                         )
-                        Text("Active Streak", style = MaterialTheme.typography.labelSmall, color = GetFitTheme.colors.textSecondary)
+                        Text("Streak", style = MaterialTheme.typography.labelSmall, color = GetFitTheme.colors.textSecondary, maxLines = 1, softWrap = false)
                     }
-                    Spacer(modifier = Modifier.width(Dimens.lg))
+                    Spacer(modifier = Modifier.width(Dimens.md))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
                         Box(
                             modifier = Modifier
                                 .size(10.dp)
                                 .clip(CircleShape)
                                 .background(GetFitTheme.colors.surface2)
+                                .border(1.dp, GetFitTheme.colors.accent.copy(alpha = 0.6f), CircleShape)
                         )
-                        Text("Logged Day", style = MaterialTheme.typography.labelSmall, color = GetFitTheme.colors.textSecondary)
+                        Text("Logged", style = MaterialTheme.typography.labelSmall, color = GetFitTheme.colors.textSecondary, maxLines = 1, softWrap = false)
                     }
-                    Spacer(modifier = Modifier.width(Dimens.lg))
+                    Spacer(modifier = Modifier.width(Dimens.md))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
                         Box(
                             modifier = Modifier
                                 .size(10.dp)
                                 .clip(CircleShape)
                                 .background(GetFitTheme.colors.surface3)
+                                .border(1.dp, GetFitTheme.colors.textTertiary, CircleShape)
                         )
-                        Text("Today", style = MaterialTheme.typography.labelSmall, color = GetFitTheme.colors.textSecondary)
+                        Text("Today", style = MaterialTheme.typography.labelSmall, color = GetFitTheme.colors.textSecondary, maxLines = 1, softWrap = false)
                     }
                 }
             }

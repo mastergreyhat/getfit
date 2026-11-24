@@ -129,8 +129,8 @@ object StreakManager {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val currentStreak = prefs.getInt(KEY_CURRENT_STREAK, 0)
         val lastStreakDate = prefs.getString(KEY_LAST_STREAK_DATE, "") ?: ""
-        // Streak is only qualified as active multi-day streak when it reaches 2 or more days
-        if (currentStreak < 2 || lastStreakDate.isBlank()) {
+        // Include any active streak (>= 1 day) so 1-Day streaks also highlight in the calendar
+        if (currentStreak < 1 || lastStreakDate.isBlank()) {
             return emptySet()
         }
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())

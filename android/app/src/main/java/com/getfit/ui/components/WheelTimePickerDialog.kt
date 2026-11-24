@@ -182,28 +182,15 @@ fun WheelTimePickerDialog(
                     }
                 }
 
-                // Action Buttons
-                Row(
+                // Action Button
+                Button(
+                    onClick = { onConfirm(formattedSelectedTime) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("Cancel")
-                    }
-
-                    Button(
-                        onClick = { onConfirm(formattedSelectedTime) },
-                        modifier = Modifier.weight(1.3f),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("Set Time", fontWeight = FontWeight.Bold)
-                    }
+                    Text("Set Time", fontWeight = FontWeight.Bold)
                 }
             }
         }

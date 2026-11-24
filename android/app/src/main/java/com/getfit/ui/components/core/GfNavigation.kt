@@ -40,8 +40,16 @@ import com.getfit.ui.theme.GetFitTheme
 val GfBottomBarContentPadding: Dp = 96.dp
 
 /**
+ * Total bottom clearance for scrollable lists/columns so items scroll smoothly under
+ * the bottom fade gradient and the last item clears [GfBottomBar] when scrolled to end.
+ */
+@Composable
+fun gfBottomBarContentPadding(): Dp =
+    GfBottomBarContentPadding + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+/**
  * Modifier helper that adds standard bottom clearance for [GfBottomBar] and accommodates
- * system navigation bar insets.
+ * system navigation bar insets (for overlays like FABs and Snackbars).
  */
 fun Modifier.gfBottomBarPadding(): Modifier = composed {
     this.padding(bottom = GfBottomBarContentPadding).navigationBarsPadding()

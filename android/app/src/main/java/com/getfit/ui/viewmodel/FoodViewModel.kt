@@ -19,8 +19,11 @@ import com.getfit.data.remote.OpenFoodFactsService
 import com.getfit.data.repository.GetFitRepository
 import com.getfit.data.util.FuzzySearchEngine
 import com.getfit.ui.util.AppDateManager
+import com.getfit.ui.util.AuthPreferences
 import com.getfit.ui.util.StreakManager
 import com.getfit.data.sync.CloudSyncManager
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -29,6 +32,14 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+
+data class MealPlanHistoryEntry(
+    val id: String,
+    val timestampMs: Long,
+    val pantryItems: String,
+    val goal: String,
+    val plan: GeminiNutritionService.GeneratedMealPlan
+)
 
 data class FoodUiState(
     val selectedDate: String = "",
@@ -53,7 +64,11 @@ data class FoodUiState(
     val totalFat: Double = 0.0,
     val totalFiber: Double = 0.0,
     val userProfile: UserProfile = UserProfile(),
-    val selectedDietPlanIndex: Int = 0, // 0 = Personal Plan!
+    val pantryInput: String = "",
+    val isGeneratingMealPlan: Boolean = false,
+    val generatedMealPlan: GeminiNutritionService.GeneratedMealPlan? = null,
+    val mealPlanHistory: List<MealPlanHistoryEntry> = emptyList(),
+    val mealPlanError: String? = null,
     val loggedDates: Set<String> = emptySet(),
     val dateWorkoutLogs: List<WorkoutLog> = emptyList()
 )
@@ -79,12 +94,26 @@ class FoodViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentTab = MutableStateFlow(0)
     val currentTab: StateFlow<Int> = _currentTab.asStateFlow()
 
+    // null = no pending scroll, 0 = top of Diary, 1 = hydration section
+    private val _diaryScrollTarget = MutableStateFlow<Int?>(null)
+    val diaryScrollTarget: StateFlow<Int?> = _diaryScrollTarget.asStateFlow()
+
     fun selectTab(tab: Int) {
         _currentTab.value = tab
     }
 
     fun resetToDiary() {
         _currentTab.value = 0
+        _diaryScrollTarget.value = 0
+    }
+
+    fun navigateToHydration() {
+        _currentTab.value = 0
+        _diaryScrollTarget.value = 1
+    }
+
+    fun consumeDiaryScrollTarget() {
+        _diaryScrollTarget.value = null
     }
 
     private val _searchQuery = MutableStateFlow("")
@@ -92,9 +121,6 @@ class FoodViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _selectedCategory = MutableStateFlow("All")
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
-
-    private val _selectedDietPlanIndex = MutableStateFlow(0)
-    val selectedDietPlanIndex: StateFlow<Int> = _selectedDietPlanIndex.asStateFlow()
 
     private val _uiState = MutableStateFlow(
         FoodUiState(
@@ -105,9 +131,30 @@ class FoodViewModel(application: Application) : AndroidViewModel(application) {
     val uiState: StateFlow<FoodUiState> = _uiState.asStateFlow()
 
     private var logsObservationJob: Job? = null
+    private val mealPlanGson = Gson()
 
     init {
         loadData()
+        loadMealPlanHistory()
+    }
+
+    private fun loadMealPlanHistory() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val prefs = getApplication<Application>().getSharedPreferences("getfit_meal_plan_history", Context.MODE_PRIVATE)
+            val raw = prefs.getString("entries", null) ?: return@launch
+            val type = object : TypeToken<List<MealPlanHistoryEntry>>() {}.type
+            val parsed = runCatching { mealPlanGson.fromJson<List<MealPlanHistoryEntry>>(raw, type) }.getOrNull() ?: emptyList()
+            _uiState.update { it.copy(mealPlanHistory = parsed) }
+        }
+    }
+
+    private fun saveMealPlanHistoryEntry(entry: MealPlanHistoryEntry) {
+        val updated = (listOf(entry) + _uiState.value.mealPlanHistory).take(5)
+        _uiState.update { it.copy(mealPlanHistory = updated) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val prefs = getApplication<Application>().getSharedPreferences("getfit_meal_plan_history", Context.MODE_PRIVATE)
+            prefs.edit().putString("entries", mealPlanGson.toJson(updated)).apply()
+        }
     }
 
     private fun getCurrentTime(): String = timeFormatter.format(Date())
@@ -257,7 +304,7 @@ class FoodViewModel(application: Application) : AndroidViewModel(application) {
                         userProfile = details.profile
                     )
                 }
-            }.collect()
+            }.flowOn(Dispatchers.Default).collect()
         }
     }
 
@@ -290,9 +337,62 @@ class FoodViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(selectedCategory = category) }
     }
 
-    fun setDietPlanIndex(index: Int) {
-        _selectedDietPlanIndex.value = index
-        _uiState.update { it.copy(selectedDietPlanIndex = index) }
+    fun onPantryInputChange(input: String) {
+        _uiState.update { it.copy(pantryInput = input, mealPlanError = null) }
+    }
+
+    private var mealPlanJob: Job? = null
+
+    fun generateAiMealPlan() {
+        val app = getApplication<Application>()
+        if (!AuthPreferences.isLoggedIn(app)) {
+            _uiState.update { it.copy(mealPlanError = "Please sign in to generate AI meal plans.") }
+            return
+        }
+        val items = _uiState.value.pantryInput.trim()
+        if (items.isEmpty()) {
+            _uiState.update { it.copy(mealPlanError = "Enter the ingredients you have at home.") }
+            return
+        }
+        if (!isNetworkAvailable()) {
+            _uiState.update { it.copy(mealPlanError = "No internet connection. Please reconnect and try again.") }
+            return
+        }
+
+        mealPlanJob?.cancel()
+        val profile = _uiState.value.userProfile
+        _uiState.update { it.copy(isGeneratingMealPlan = true, mealPlanError = null) }
+
+        mealPlanJob = viewModelScope.launch {
+            val resolvedGoal = profile.goal.ifBlank { "Balanced Fitness" }
+            val result = GeminiNutritionService.generateMealPlan(
+                context = app,
+                pantryItems = items,
+                targetCalories = profile.dailyCalorieTarget.coerceAtLeast(1200),
+                targetProtein = profile.dailyProteinTarget.coerceAtLeast(50),
+                targetCarbs = profile.dailyCarbsTarget.coerceAtLeast(50),
+                targetFat = profile.dailyFatTarget.coerceAtLeast(30),
+                goal = resolvedGoal
+            )
+            result.fold(
+                onSuccess = { plan ->
+                    val now = System.currentTimeMillis()
+                    saveMealPlanHistoryEntry(
+                        MealPlanHistoryEntry(
+                            id = now.toString(),
+                            timestampMs = now,
+                            pantryItems = items,
+                            goal = resolvedGoal,
+                            plan = plan
+                        )
+                    )
+                    _uiState.update { it.copy(isGeneratingMealPlan = false, generatedMealPlan = plan, mealPlanError = null) }
+                },
+                onFailure = { err ->
+                    _uiState.update { it.copy(isGeneratingMealPlan = false, mealPlanError = err.message ?: "Failed to generate meal plan.") }
+                }
+            )
+        }
     }
 
     private var searchOnlineJob: Job? = null
@@ -479,33 +579,52 @@ class FoodViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun logMealSuggestion(suggestion: MealSuggestion, targetMealType: String? = null) {
-        viewModelScope.launch {
-            val raw = targetMealType ?: suggestion.mealType
-            val lower = raw.lowercase().trim()
-            val effectiveMealType = when {
-                lower.contains("breakfast") || lower.contains("morning") -> "Breakfast"
-                lower.contains("lunch") -> "Lunch"
-                lower.contains("dinner") || lower.contains("night") || lower.contains("bed") -> "Dinner"
-                else -> "Snacks"
-            }
+    private fun generatedMealToFoodLog(
+        meal: GeminiNutritionService.GeneratedMeal,
+        date: String,
+        time: String
+    ): FoodLog {
+        val lower = meal.mealType.lowercase().trim()
+        val effectiveMealType = when {
+            lower.contains("breakfast") || lower.contains("morning") -> "Breakfast"
+            lower.contains("lunch") -> "Lunch"
+            lower.contains("dinner") || lower.contains("night") || lower.contains("bed") -> "Dinner"
+            else -> "Snacks"
+        }
+        return FoodLog(
+            foodItemId = 0L,
+            foodName = "${meal.title}: ${meal.items.joinToString(", ")}",
+            quantity = 1.0,
+            servingSize = 1.0,
+            totalCalories = meal.calories.toDouble(),
+            totalProtein = meal.protein.toDouble(),
+            totalCarbs = meal.carbs.toDouble(),
+            totalFat = meal.fat.toDouble(),
+            totalFiber = 0.0,
+            mealType = effectiveMealType,
+            date = date,
+            time = time
+        )
+    }
 
-            val foodLog = FoodLog(
-                foodItemId = 0L,
-                foodName = suggestion.mealType + ": " + suggestion.foods.joinToString(", "),
-                quantity = 1.0,
-                servingSize = 1.0,
-                totalCalories = suggestion.calories.toDouble(),
-                totalProtein = suggestion.protein.toDouble(),
-                totalCarbs = suggestion.carbs.toDouble(),
-                totalFat = suggestion.fat.toDouble(),
-                totalFiber = 0.0,
-                mealType = effectiveMealType,
-                date = AppDateManager.selectedDate.value,
-                time = getCurrentTime()
-            )
-            repository.insertFoodLog(foodLog)
-            StreakManager.recordLogAction(getApplication(), foodLog.date)
+    fun logGeneratedMeal(meal: GeminiNutritionService.GeneratedMeal) {
+        viewModelScope.launch {
+            val date = AppDateManager.selectedDate.value
+            repository.insertFoodLog(generatedMealToFoodLog(meal, date, getCurrentTime()))
+            StreakManager.recordLogAction(getApplication(), date)
+            CloudSyncManager.triggerSilentUpload(getApplication(), repository)
+        }
+    }
+
+    fun logAllGeneratedMeals(meals: List<GeminiNutritionService.GeneratedMeal>) {
+        if (meals.isEmpty()) return
+        viewModelScope.launch {
+            val date = AppDateManager.selectedDate.value
+            val time = getCurrentTime()
+            meals.forEach { meal ->
+                repository.insertFoodLog(generatedMealToFoodLog(meal, date, time))
+            }
+            StreakManager.recordLogAction(getApplication(), date)
             CloudSyncManager.triggerSilentUpload(getApplication(), repository)
         }
     }
@@ -602,6 +721,13 @@ class FoodViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.setWaterIntake(AppDateManager.selectedDate.value, amountMl)
             StreakManager.recordLogAction(getApplication(), AppDateManager.selectedDate.value)
+        }
+    }
+
+    fun updateWaterTarget(targetMl: Int) {
+        viewModelScope.launch {
+            val safeTarget = targetMl.coerceIn(500, 10000)
+            repository.updateWaterTarget(safeTarget)
         }
     }
 

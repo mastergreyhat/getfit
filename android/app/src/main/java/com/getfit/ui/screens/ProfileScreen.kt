@@ -29,8 +29,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -51,18 +49,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.delay
+import com.getfit.ui.theme.Dimens
 import com.getfit.ui.theme.GetFitTheme
-import com.getfit.data.MealPlanSuggestions
 import com.getfit.data.WorkoutPlans
 import com.getfit.data.entity.TrashItem
 import com.getfit.notification.NotificationHelper
@@ -70,13 +67,22 @@ import com.getfit.notification.TimeValidator
 import com.getfit.ui.components.AvatarPickerDialog
 import com.getfit.ui.components.MacroSummaryRow
 import com.getfit.ui.util.AvatarManager
-import com.getfit.ui.util.ProfileAvatar
 import com.getfit.ui.util.StreakManager
 import com.getfit.ui.components.WheelTimePickerDialog
 import com.getfit.notification.ReminderPreferences
-import com.getfit.ui.components.CleanProgressSpinner
 import com.getfit.ui.components.ThemeCapsuleToggle
-import com.getfit.ui.theme.CaloriesOrange
+import com.getfit.ui.components.core.GfBigNumber
+import com.getfit.ui.components.core.GfCard
+import com.getfit.ui.components.core.GfChipFlow
+import com.getfit.ui.components.core.GfHeroCard
+import com.getfit.ui.components.core.GfOverline
+import com.getfit.ui.components.core.GfPrimaryButton
+import com.getfit.ui.components.core.GfSecondaryButton
+import com.getfit.ui.components.core.GfSectionHeader
+import com.getfit.ui.components.core.GfTextButton
+import com.getfit.ui.components.core.GfTextField
+import com.getfit.ui.components.core.gfBottomBarPadding
+import com.getfit.ui.components.core.pressable
 import com.getfit.ui.util.ThemePreferences
 import com.getfit.ui.viewmodel.ProfileViewModel
 
@@ -202,6 +208,7 @@ fun ProfileScreen(
     }
 
     Scaffold(
+        containerColor = GetFitTheme.colors.background,
         snackbarHost = {
             AnimatedVisibility(
                 visible = showSavedSnackbar,
@@ -215,24 +222,24 @@ fun ProfileScreen(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp, start = 20.dp, end = 20.dp)
+                    .gfBottomBarPadding()
+                    .padding(horizontal = Dimens.screenGutter, vertical = Dimens.sm)
             ) {
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.94f),
-                        contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                        shape = RoundedCornerShape(Dimens.xl),
+                        color = GetFitTheme.colors.surface3,
+                        contentColor = GetFitTheme.colors.textPrimary,
                         shadowElevation = 6.dp,
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+                        border = BorderStroke(1.dp, GetFitTheme.colors.hairline)
                     ) {
                         Text(
                             text = snackbarMessage,
                             style = MaterialTheme.typography.bodySmall,
-
                             fontWeight = FontWeight.Medium,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            modifier = Modifier.padding(horizontal = Dimens.lg, vertical = Dimens.sm)
                         )
                     }
                 }
@@ -244,65 +251,62 @@ fun ProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(MaterialTheme.colorScheme.background)
+                .background(GetFitTheme.colors.background)
                 .verticalScroll(profileScrollState)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = Dimens.screenGutter, vertical = Dimens.md),
+            verticalArrangement = Arrangement.spacedBy(Dimens.lg)
         ) {
             // Header Profile Card
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = GetFitTheme.colors.surface1),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(1.dp, GetFitTheme.colors.hairline),
+            GfCard(
+                cornerRadius = Dimens.lg,
+                contentPadding = PaddingValues(Dimens.lg),
+                useGradient = false,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.md)
                 ) {
                     // Avatar profile photo badge with streak tier glow
                     Surface(
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(Dimens.lg),
                         color = currentAvatar.accentColor.copy(alpha = 0.15f),
                         border = BorderStroke(1.5.dp, currentAvatar.accentColor.copy(alpha = 0.5f)),
                         modifier = Modifier
                             .size(60.dp)
-                            .clickable { showAvatarPicker = true }
+                            .pressable(onClick = { showAvatarPicker = true })
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text(text = currentAvatar.emoji, style = MaterialTheme.typography.displaySmall)
+                            com.getfit.ui.components.AvatarArtwork(
+                                avatarId = currentAvatar.id,
+                                accentColor = currentAvatar.accentColor,
+                                size = 48.dp,
+                                locked = false
+                            )
                         }
                     }
 
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .clickable { showAvatarPicker = true }
+                            .pressable(onClick = { showAvatarPicker = true })
                     ) {
+                        Text(
+                            text = if (name.isNotBlank()) name else "User Profile",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = GetFitTheme.colors.textPrimary,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(
-                                text = if (name.isNotBlank()) name else "User Profile",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
                             modifier = Modifier.padding(top = 2.dp)
                         ) {
                             Surface(
-                                shape = RoundedCornerShape(4.dp),
+                                shape = RoundedCornerShape(Dimens.xs),
                                 color = currentAvatar.accentColor.copy(alpha = 0.15f)
                             ) {
                                 Text(
@@ -317,9 +321,9 @@ fun ProfileScreen(
                             }
                             if (uiState.isLoggedIn) {
                                 Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                                    modifier = Modifier.clickable { showSettingsDialog = true }
+                                    shape = RoundedCornerShape(Dimens.xs),
+                                    color = GetFitTheme.colors.accent.copy(alpha = 0.15f),
+                                    modifier = Modifier.pressable(onClick = { showSettingsDialog = true })
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -329,22 +333,22 @@ fun ProfileScreen(
                                         Icon(
                                             Icons.Default.CloudDone,
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
+                                            tint = GetFitTheme.colors.accent,
                                             modifier = Modifier.size(10.dp)
                                         )
                                         Text(
                                             text = "Synced",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
+                                            color = GetFitTheme.colors.accent
                                         )
                                     }
                                 }
                             } else {
                                 Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
-                                    modifier = Modifier.clickable { onNavigateToAuth() }
+                                    shape = RoundedCornerShape(Dimens.xs),
+                                    color = GetFitTheme.colors.surface2,
+                                    modifier = Modifier.pressable(onClick = onNavigateToAuth)
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -354,14 +358,14 @@ fun ProfileScreen(
                                         Icon(
                                             Icons.Default.CloudSync,
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            tint = GetFitTheme.colors.textSecondary,
                                             modifier = Modifier.size(10.dp)
                                         )
                                         Text(
                                             text = "Cloud Sync",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Medium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = GetFitTheme.colors.textSecondary
                                         )
                                     }
                                 }
@@ -373,7 +377,7 @@ fun ProfileScreen(
                             maxLines = 1,
                             softWrap = false,
                             overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = GetFitTheme.colors.textSecondary,
                             modifier = Modifier.padding(top = 2.dp)
                         )
                     }
@@ -385,180 +389,194 @@ fun ProfileScreen(
                         Icon(
                             Icons.Default.Settings,
                             contentDescription = "Settings",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = GetFitTheme.colors.textSecondary
                         )
                     }
                 }
             }
 
             // User Info Inputs
-            Text(
-                text = "Personal Information",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+            GfSectionHeader(
+                title = "Personal Information",
+                topSpacing = Dimens.sm
             )
 
-            OutlinedTextField(
+            GfTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Full Name") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
+                label = "Full Name",
+                imeAction = ImeAction.Next,
+                modifier = Modifier.fillMaxWidth()
             )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(Dimens.md)
             ) {
-                OutlinedTextField(
+                GfTextField(
                     value = ageText,
                     onValueChange = { ageText = it },
-                    label = { Text("Age (yrs)") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(12.dp)
+                    label = "Age (yrs)",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                    modifier = Modifier.weight(1f)
                 )
 
-                OutlinedTextField(
+                GfTextField(
                     value = weightText,
                     onValueChange = { weightText = it },
-                    label = { Text("Weight (kg)") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(12.dp)
+                    label = "Weight (kg)",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                    modifier = Modifier.weight(1f)
                 )
 
-                OutlinedTextField(
+                GfTextField(
                     value = heightText,
                     onValueChange = { heightText = it },
-                    label = { Text("Height (cm)") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(12.dp)
+                    label = "Height (cm)",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                    modifier = Modifier.weight(1f)
                 )
             }
 
             // Gender Selector
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Gender", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    genders.forEach { g ->
-                        FilterChip(
-                            selected = selectedGender.equals(g, ignoreCase = true),
-                            onClick = { selectedGender = g },
-                            label = { Text(g) }
-                        )
-                    }
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(Dimens.sm)) {
+                GfOverline(text = "Gender")
+                GfChipFlow(
+                    items = genders,
+                    selectedItem = genders.firstOrNull { it.equals(selectedGender, ignoreCase = true) },
+                    onItemSelected = { selectedGender = it }
+                )
             }
 
             // Activity Level Selector
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Activity Level", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    activities.forEach { act ->
-                        FilterChip(
-                            selected = selectedActivity.equals(act, ignoreCase = true),
-                            onClick = { selectedActivity = act },
-                            label = { Text(act) }
-                        )
-                    }
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(Dimens.sm)) {
+                GfOverline(text = "Activity Level")
+                GfChipFlow(
+                    items = activities,
+                    selectedItem = activities.firstOrNull { it.equals(selectedActivity, ignoreCase = true) },
+                    onItemSelected = { selectedActivity = it }
+                )
             }
 
             // Fitness Goal Selector
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Fitness Goal", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    goals.forEach { g ->
-                        FilterChip(
-                            selected = selectedGoal.equals(g, ignoreCase = true),
-                            onClick = { selectedGoal = g },
-                            label = { Text(g) }
-                        )
-                    }
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(Dimens.sm)) {
+                GfOverline(text = "Fitness Goal")
+                GfChipFlow(
+                    items = goals,
+                    selectedItem = goals.firstOrNull { it.equals(selectedGoal, ignoreCase = true) },
+                    onItemSelected = { selectedGoal = it }
+                )
             }
 
             // Workout Split Selector
-            Text("Workout Plan Split", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            GfSectionHeader(
+                title = "Workout Plan Split",
+                topSpacing = Dimens.sm
+            )
 
             workoutPlans.forEach { plan ->
                 val isSelected = selectedWorkoutPlan.equals(plan.name, ignoreCase = true)
 
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+                Surface(
+                    shape = RoundedCornerShape(Dimens.lg),
+                    color = if (isSelected) GetFitTheme.colors.surface3 else GetFitTheme.colors.surface1,
+                    border = BorderStroke(
+                        1.dp,
+                        if (isSelected) GetFitTheme.colors.accent else GetFitTheme.colors.hairline
                     ),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pressable(onClick = { selectedWorkoutPlan = plan.name })
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(14.dp),
+                            .padding(Dimens.lg),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(modifier = Modifier.weight(1f).padding(end = Dimens.sm)) {
                             Text(
                                 text = "${plan.name} (${plan.daysPerWeek} days/week)",
                                 style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isSelected) GetFitTheme.colors.accent else GetFitTheme.colors.textPrimary
                             )
                             Text(
                                 text = plan.description,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = GetFitTheme.colors.textSecondary
                             )
                         }
                         RadioButton(
                             selected = isSelected,
-                            onClick = { selectedWorkoutPlan = plan.name }
+                            onClick = { selectedWorkoutPlan = plan.name },
+                            colors = RadioButtonDefaults.colors(
+                                selectedColor = GetFitTheme.colors.accent,
+                                unselectedColor = GetFitTheme.colors.textTertiary
+                            )
                         )
                     }
                 }
             }
 
-            // Auto-Calculated TDEE & Target Card
-            Text("Calculated Energy & Macros", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            // Auto-Calculated TDEE & Target Card (One hero per screen)
+            GfSectionHeader(
+                title = "Calculated Energy & Macros",
+                topSpacing = Dimens.sm
+            )
 
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = GetFitTheme.colors.surface1),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(1.dp, GetFitTheme.colors.hairline),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+            GfHeroCard(modifier = Modifier.fillMaxWidth()) {
+                Column(verticalArrangement = Arrangement.spacedBy(Dimens.lg)) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Dimens.xs)
+                    ) {
+                        GfOverline(text = "Target Calories")
+                        GfBigNumber(
+                            value = liveCalc.targetCalories,
+                            unit = "kcal",
+                            hero = true,
+                            color = GetFitTheme.colors.calories,
+                            style = MaterialTheme.typography.displayMedium
+                        )
+                    }
+
+                    Divider(color = GetFitTheme.colors.hairline, thickness = 1.dp)
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceAround
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = "${liveCalc.bmr} kcal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text(text = "BMR", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = "${liveCalc.bmr} kcal",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = GetFitTheme.colors.textPrimary
+                            )
+                            Text(
+                                text = "BMR",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GetFitTheme.colors.textSecondary
+                            )
                         }
-                        Divider(modifier = Modifier.height(30.dp).width(1.dp))
+                        Divider(
+                            modifier = Modifier.height(30.dp).width(1.dp),
+                            color = GetFitTheme.colors.hairline
+                        )
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = "${liveCalc.tdee} kcal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text(text = "TDEE", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Divider(modifier = Modifier.height(30.dp).width(1.dp))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = "${liveCalc.targetCalories} kcal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = CaloriesOrange)
-                            Text(text = "Target Calories", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = "${liveCalc.tdee} kcal",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = GetFitTheme.colors.textPrimary
+                            )
+                            Text(
+                                text = "TDEE",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GetFitTheme.colors.textSecondary
+                            )
                         }
                     }
 
@@ -574,27 +592,23 @@ fun ProfileScreen(
             }
 
             // Diet Plan Presets Quick Apply
-            Text("Or Choose a Preset Diet Plan", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            GfOverline(text = "Or Choose a Preset Diet Plan")
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
             ) {
                 listOf(2000, 2500, 3000, 3500).forEach { cal ->
-                    OutlinedButton(
+                    GfSecondaryButton(
+                        text = "$cal",
+                        compact = true,
                         onClick = {
                             viewModel.applyPresetDietPlan(cal)
                             snackbarMessage = "Applied $cal kcal Diet Plan"
                             showSavedSnackbar = true
                         },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GetFitTheme.colors.accent),
-                        border = BorderStroke(1.dp, GetFitTheme.colors.hairline),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
-                    ) {
-                        Text("$cal", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                    }
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
 
@@ -604,59 +618,69 @@ fun ProfileScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Manual Target Override", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                Switch(checked = isManualOverride, onCheckedChange = { isManualOverride = it })
+                Text(
+                    text = "Manual Target Override",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = GetFitTheme.colors.textPrimary
+                )
+                Switch(
+                    checked = isManualOverride,
+                    onCheckedChange = { isManualOverride = it },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = GetFitTheme.colors.onAccent,
+                        checkedTrackColor = GetFitTheme.colors.accent
+                    )
+                )
             }
 
             if (isManualOverride) {
-                OutlinedTextField(
+                GfTextField(
                     value = customCalText,
                     onValueChange = { customCalText = it },
-                    label = { Text("Target Calories (kcal)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(12.dp)
+                    label = "Target Calories",
+                    suffix = "kcal",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                 ) {
-                    OutlinedTextField(
+                    GfTextField(
                         value = customProteinText,
                         onValueChange = { customProteinText = it },
-                        label = { Text("Protein (g)") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        shape = RoundedCornerShape(12.dp)
+                        label = "Protein",
+                        suffix = "g",
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                        modifier = Modifier.weight(1f)
                     )
 
-                    OutlinedTextField(
+                    GfTextField(
                         value = customCarbsText,
                         onValueChange = { customCarbsText = it },
-                        label = { Text("Carbs (g)") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        shape = RoundedCornerShape(12.dp)
+                        label = "Carbs",
+                        suffix = "g",
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                        modifier = Modifier.weight(1f)
                     )
 
-                    OutlinedTextField(
+                    GfTextField(
                         value = customFatText,
                         onValueChange = { customFatText = it },
-                        label = { Text("Fat (g)") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        shape = RoundedCornerShape(12.dp)
+                        label = "Fat",
+                        suffix = "g",
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
 
             // Save Profile Button
-            Button(
+            GfPrimaryButton(
+                text = "Save Profile & Calculate Plan",
+                icon = Icons.Default.Save,
                 onClick = {
                     val finalAge = ageText.toIntOrNull() ?: 25
                     val finalWeight = weightText.toDoubleOrNull() ?: 70.0
@@ -681,43 +705,32 @@ fun ProfileScreen(
                     viewModel.updateMealSchedule("Dinner", dinnerTime, dinnerReminderEnabled)
                     snackbarMessage = "Profile and Targets Saved Successfully!"
                     showSavedSnackbar = true
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Icon(Icons.Default.Save, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Save Profile & Calculate Plan", fontWeight = FontWeight.Bold)
-            }
+                }
+            )
 
             // Account & Sync Section at bottom of Profile Screen
             if (uiState.isLoggedIn) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                GfCard(
+                    cornerRadius = Dimens.lg,
+                    contentPadding = PaddingValues(Dimens.lg),
+                    useGradient = false,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                         ) {
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(Dimens.sm),
+                                color = GetFitTheme.colors.accent.copy(alpha = 0.15f),
                                 modifier = Modifier.size(36.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         Icons.Default.CloudDone,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
+                                        tint = GetFitTheme.colors.accent,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -726,7 +739,8 @@ fun ProfileScreen(
                                 Text(
                                     text = uiState.userEmail ?: "Signed In",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = GetFitTheme.colors.textPrimary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -739,68 +753,51 @@ fun ProfileScreen(
                                 Text(
                                     text = lastSyncText,
                                     style = MaterialTheme.typography.bodySmall,
-
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = GetFitTheme.colors.textSecondary
                                 )
                             }
                         }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                         ) {
-                            OutlinedButton(
+                            GfSecondaryButton(
+                                text = "Sync Now",
+                                isLoading = uiState.isSyncing,
+                                compact = true,
                                 onClick = {
                                     viewModel.syncNow { _, msg ->
                                         snackbarMessage = msg
                                         showSavedSnackbar = true
                                     }
                                 },
-                                enabled = !uiState.isSyncing,
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                if (uiState.isSyncing) {
-                                    CleanProgressSpinner(
-                                        modifier = Modifier.size(14.dp),
-                                        strokeWidth = 2.dp,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                }
-                                Text("Sync Now", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                            }
+                                modifier = Modifier.weight(1f)
+                            )
 
-                            Button(
+                            GfTextButton(
+                                text = "Log Out",
+                                color = GetFitTheme.colors.danger,
                                 onClick = {
                                     viewModel.logout {
                                         onLogout()
                                     }
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Text("Log Out", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                            }
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
                 }
             } else {
-                OutlinedButton(
+                GfSecondaryButton(
+                    text = "Sign In / Create Account",
+                    icon = Icons.Default.CloudSync,
                     onClick = onNavigateToAuth,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Sign In / Create Account", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                }
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
-            Spacer(modifier = Modifier.height(72.dp))
+            Spacer(modifier = Modifier.height(com.getfit.ui.components.core.gfBottomBarContentPadding()))
         }
     }
 
@@ -823,25 +820,27 @@ fun ProfileScreen(
     if (showResetExercisesDialog) {
         AlertDialog(
             onDismissRequest = { showResetExercisesDialog = false },
-            title = { Text("Reset Exercises to Default?", fontWeight = FontWeight.Bold) },
+            containerColor = GetFitTheme.colors.surface1,
+            titleContentColor = GetFitTheme.colors.textPrimary,
+            textContentColor = GetFitTheme.colors.textSecondary,
+            title = { Text("Reset Exercises to Default?", style = MaterialTheme.typography.titleLarge) },
             text = {
-                Text("This will restore all built-in exercises across all muscle groups. Any custom exercises you added will be preserved safely.")
+                Text(
+                    text = "This will restore all built-in exercises across all muscle groups. Any custom exercises you added will be preserved safely.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
             },
             confirmButton = {
-                Button(onClick = {
-                    viewModel.resetExercisesToDefault { count ->
-                        snackbarMessage = "Restored $count default exercises!"
-                        showSavedSnackbar = true
+                GfTextButton(
+                    text = "Reset Exercises",
+                    onClick = {
+                        viewModel.resetExercisesToDefault { count ->
+                            snackbarMessage = "Restored $count default exercises!"
+                            showSavedSnackbar = true
+                        }
+                        showResetExercisesDialog = false
                     }
-                    showResetExercisesDialog = false
-                }) {
-                    Text("Reset Exercises", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showResetExercisesDialog = false }) {
-                    Text("Cancel")
-                }
+                )
             }
         )
     }
@@ -856,14 +855,14 @@ fun ProfileScreen(
                 modifier = Modifier
                     .fillMaxWidth(0.95f)
                     .fillMaxHeight(0.85f),
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                shape = RoundedCornerShape(Dimens.xl),
+                color = GetFitTheme.colors.surface1,
+                border = BorderStroke(1.dp, GetFitTheme.colors.hairline)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(18.dp)
+                        .padding(Dimens.xl)
                 ) {
                     // Header
                     Row(
@@ -871,18 +870,35 @@ fun ProfileScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Text("Trash (${uiState.trashItems.size})", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = null,
+                                tint = GetFitTheme.colors.accent
+                            )
+                            Text(
+                                text = "Trash (${uiState.trashItems.size})",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = GetFitTheme.colors.textPrimary
+                            )
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (uiState.trashItems.isNotEmpty()) {
-                                TextButton(onClick = { showEmptyTrashConfirmDialog = true }) {
-                                    Text("Empty Trash", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                                }
+                                GfTextButton(
+                                    text = "Empty Trash",
+                                    color = GetFitTheme.colors.danger,
+                                    onClick = { showEmptyTrashConfirmDialog = true }
+                                )
                             }
                             IconButton(onClick = { showTrashDialog = false }) {
-                                Icon(Icons.Default.Close, contentDescription = "Close")
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close",
+                                    tint = GetFitTheme.colors.textSecondary
+                                )
                             }
                         }
                     }
@@ -890,8 +906,8 @@ fun ProfileScreen(
                     Text(
                         text = "Items are retained for 10 days before automatic deletion.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        modifier = Modifier.padding(bottom = 12.dp)
+                        color = GetFitTheme.colors.textSecondary,
+                        modifier = Modifier.padding(bottom = Dimens.md)
                     )
 
                     if (uiState.trashItems.isEmpty()) {
@@ -903,19 +919,23 @@ fun ProfileScreen(
                         ) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(Dimens.sm)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.DeleteOutline,
                                     contentDescription = null,
                                     modifier = Modifier.size(48.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                    tint = GetFitTheme.colors.textTertiary
                                 )
-                                Text("Trash is empty", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    text = "Trash is empty",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = GetFitTheme.colors.textSecondary
+                                )
                                 Text(
                                     text = "Deleted exercises, categories, and logs will appear here for 10 days.",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    color = GetFitTheme.colors.textTertiary,
                                     textAlign = TextAlign.Center
                                 )
                             }
@@ -923,66 +943,68 @@ fun ProfileScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(Dimens.sm)
                         ) {
                             itemsIndexed(uiState.trashItems, key = { idx, item -> "trash_${item.id}_${item.itemType}_$idx" }) { _, item ->
                                 val daysElapsed = ((System.currentTimeMillis() - item.deletedAtMillis) / (24 * 3600 * 1000L)).toInt().coerceAtLeast(0)
                                 val daysRemaining = (10 - daysElapsed).coerceAtLeast(1)
 
-                                Card(
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                                GfCard(
+                                    cornerRadius = Dimens.lg,
+                                    contentPadding = PaddingValues(Dimens.md),
+                                    useGradient = false,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(12.dp),
+                                        modifier = Modifier.fillMaxWidth(),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
                                             ) {
                                                 Surface(
-                                                    shape = RoundedCornerShape(4.dp),
-                                                    color = MaterialTheme.colorScheme.primaryContainer
+                                                    shape = RoundedCornerShape(Dimens.xs),
+                                                    color = GetFitTheme.colors.surface2
                                                 ) {
                                                     Text(
                                                         text = item.itemType,
                                                         style = MaterialTheme.typography.labelSmall,
                                                         fontWeight = FontWeight.Bold,
-                                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                        color = GetFitTheme.colors.accent,
                                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                                     )
                                                 }
                                                 Text(
                                                     text = "Auto-deletes in $daysRemaining d",
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                                    color = GetFitTheme.colors.textTertiary
                                                 )
                                             }
-                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Spacer(modifier = Modifier.height(Dimens.xs))
                                             Text(
                                                 text = item.title,
-                                                fontWeight = FontWeight.Bold,
-                                                style = MaterialTheme.typography.bodyMedium
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = GetFitTheme.colors.textPrimary
                                             )
                                             Text(
                                                 text = item.subtitle,
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = GetFitTheme.colors.textSecondary
                                             )
                                         }
 
                                         Row(
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            FilledTonalButton(
+                                            GfSecondaryButton(
+                                                text = "Restore",
+                                                icon = Icons.Default.Restore,
+                                                compact = true,
                                                 onClick = {
                                                     viewModel.restoreTrashItem(item) { success ->
                                                         if (success) {
@@ -990,14 +1012,8 @@ fun ProfileScreen(
                                                             showSavedSnackbar = true
                                                         }
                                                     }
-                                                },
-                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                                shape = RoundedCornerShape(8.dp)
-                                            ) {
-                                                Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(14.dp))
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Restore", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                            }
+                                                }
+                                            )
 
                                             IconButton(
                                                 onClick = { trashItemToDeletePermanently = item }
@@ -1005,7 +1021,7 @@ fun ProfileScreen(
                                                 Icon(
                                                     Icons.Default.Delete,
                                                     contentDescription = "Delete Permanently",
-                                                    tint = MaterialTheme.colorScheme.error,
+                                                    tint = GetFitTheme.colors.danger,
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                             }
@@ -1024,25 +1040,27 @@ fun ProfileScreen(
     if (showEmptyTrashConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showEmptyTrashConfirmDialog = false },
-            title = { Text("Empty Trash?", fontWeight = FontWeight.Bold) },
-            text = { Text("Are you sure you want to permanently delete all items in trash? This cannot be undone.") },
+            containerColor = GetFitTheme.colors.surface1,
+            titleContentColor = GetFitTheme.colors.textPrimary,
+            textContentColor = GetFitTheme.colors.textSecondary,
+            title = { Text("Empty Trash?", style = MaterialTheme.typography.titleLarge) },
+            text = {
+                Text(
+                    text = "Are you sure you want to permanently delete all items in trash? This cannot be undone.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
             confirmButton = {
-                Button(
+                GfTextButton(
+                    text = "Empty Trash",
+                    color = GetFitTheme.colors.danger,
                     onClick = {
                         viewModel.emptyTrash()
                         showEmptyTrashConfirmDialog = false
                         snackbarMessage = "Trash cleared permanently."
                         showSavedSnackbar = true
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Empty Trash", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEmptyTrashConfirmDialog = false }) {
-                    Text("Cancel")
-                }
+                    }
+                )
             }
         )
     }
@@ -1052,25 +1070,27 @@ fun ProfileScreen(
         val target = trashItemToDeletePermanently!!
         AlertDialog(
             onDismissRequest = { trashItemToDeletePermanently = null },
-            title = { Text("Delete Permanently?", fontWeight = FontWeight.Bold) },
-            text = { Text("Are you sure you want to permanently delete \"${target.title}\"?") },
+            containerColor = GetFitTheme.colors.surface1,
+            titleContentColor = GetFitTheme.colors.textPrimary,
+            textContentColor = GetFitTheme.colors.textSecondary,
+            title = { Text("Delete Permanently?", style = MaterialTheme.typography.titleLarge) },
+            text = {
+                Text(
+                    text = "Are you sure you want to permanently delete \"${target.title}\"?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
             confirmButton = {
-                Button(
+                GfTextButton(
+                    text = "Delete",
+                    color = GetFitTheme.colors.danger,
                     onClick = {
                         viewModel.deleteTrashItem(target)
                         trashItemToDeletePermanently = null
                         snackbarMessage = "Deleted permanently."
                         showSavedSnackbar = true
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Delete", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { trashItemToDeletePermanently = null }) {
-                    Text("Cancel")
-                }
+                    }
+                )
             }
         )
     }
@@ -1078,18 +1098,17 @@ fun ProfileScreen(
     // Settings & Preferences Dialog
     if (showSettingsDialog) {
         Dialog(onDismissRequest = { showSettingsDialog = false }) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            GfCard(
+                cornerRadius = Dimens.xl,
+                contentPadding = PaddingValues(Dimens.xl),
+                useGradient = false,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp)
                         .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(Dimens.lg)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1098,35 +1117,37 @@ fun ProfileScreen(
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                         ) {
-                            Icon(Icons.Default.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = null,
+                                tint = GetFitTheme.colors.accent
+                            )
                             Text(
                                 text = "Settings",
                                 style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
+                                color = GetFitTheme.colors.textPrimary
                             )
                         }
                         IconButton(onClick = { showSettingsDialog = false }, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Default.Close, contentDescription = "Close")
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = GetFitTheme.colors.textSecondary
+                            )
                         }
                     }
 
-                    Divider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
+                    Divider(color = GetFitTheme.colors.hairline, thickness = 1.dp)
 
                     // Theme Appearance
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "APPEARANCE",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 1.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
+                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.sm)) {
+                        GfOverline(text = "Appearance")
                         Text(
                             text = "Switch between Clean White light theme and OLED Inverted dark theme",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = GetFitTheme.colors.textSecondary
                         )
                         ThemeCapsuleToggle(
                             isDark = isDark,
@@ -1138,28 +1159,22 @@ fun ProfileScreen(
                         )
                     }
 
-                    Divider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
+                    Divider(color = GetFitTheme.colors.hairline, thickness = 1.dp)
 
                     // Notifications & Reminders
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            text = "NOTIFICATIONS & REMINDERS",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 1.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
+                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
+                        GfOverline(text = "Notifications & Reminders")
 
                         Text(
                             text = "MEAL REMINDER SCHEDULE",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = GetFitTheme.colors.textPrimary
                         )
                         Text(
                             text = "Set or unset reminder alerts and customize delivery time for each meal:",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = GetFitTheme.colors.textSecondary
                         )
 
                         // Breakfast Row
@@ -1207,7 +1222,7 @@ fun ProfileScreen(
                             }
                         )
 
-                        Divider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
+                        Divider(color = GetFitTheme.colors.hairline, thickness = 1.dp)
 
                         // Water Hydration Reminders
                         Row(
@@ -1220,12 +1235,12 @@ fun ProfileScreen(
                                     text = "WATER INTAKE ALERTS",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = GetFitTheme.colors.textPrimary
                                 )
                                 Text(
                                     text = "Alerts only at your chosen times. Add or remove multiple times:",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = GetFitTheme.colors.textSecondary
                                 )
                             }
                             Switch(
@@ -1233,7 +1248,11 @@ fun ProfileScreen(
                                 onCheckedChange = {
                                     waterRemindersEnabled = it
                                     viewModel.updateWaterSettings(it, waterReminderTimes)
-                                }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = GetFitTheme.colors.onAccent,
+                                    checkedTrackColor = GetFitTheme.colors.accent
+                                )
                             )
                         }
 
@@ -1241,29 +1260,30 @@ fun ProfileScreen(
                             Text(
                                 text = "Active Alert Times (${waterReminderTimes.size})",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = GetFitTheme.colors.textSecondary
                             )
 
                             FlowRow(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
+                                verticalArrangement = Arrangement.spacedBy(Dimens.xs)
                             ) {
                                 waterReminderTimes.forEach { time ->
                                     Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant,
-                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                        shape = RoundedCornerShape(Dimens.sm),
+                                        color = GetFitTheme.colors.surface2,
+                                        border = BorderStroke(1.dp, GetFitTheme.colors.hairline)
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(start = 8.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                                            modifier = Modifier.padding(start = Dimens.sm, end = Dimens.xs, top = Dimens.xs, bottom = Dimens.xs),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(2.dp)
                                         ) {
                                             Text(
                                                 text = time,
                                                 style = MaterialTheme.typography.bodySmall,
-                                                fontWeight = FontWeight.SemiBold
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = GetFitTheme.colors.textPrimary
                                             )
                                             IconButton(
                                                 onClick = {
@@ -1279,7 +1299,7 @@ fun ProfileScreen(
                                                     Icons.Default.Close,
                                                     contentDescription = "Remove $time",
                                                     modifier = Modifier.size(12.dp),
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    tint = GetFitTheme.colors.textSecondary
                                                 )
                                             }
                                         }
@@ -1287,29 +1307,21 @@ fun ProfileScreen(
                                 }
                             }
 
-                            OutlinedButton(
+                            GfSecondaryButton(
+                                text = "Add Alert Time",
+                                icon = Icons.Default.Add,
+                                compact = true,
                                 onClick = { showAddWaterTimePicker = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Add Alert Time", fontWeight = FontWeight.SemiBold)
-                            }
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
 
-                    Divider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
+                    Divider(color = GetFitTheme.colors.hairline, thickness = 1.dp)
 
                     // Library & Recovery
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            text = "LIBRARY & RECOVERY",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 1.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
+                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
+                        GfOverline(text = "Library & Recovery")
 
                         // Reset Exercises Row
                         Row(
@@ -1321,22 +1333,21 @@ fun ProfileScreen(
                                 Text(
                                     text = "Reset Exercises to Default",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = GetFitTheme.colors.textPrimary
                                 )
                                 Text(
                                     text = "Restores all standard exercises. Keeps custom exercises safe.",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = GetFitTheme.colors.textSecondary
                                 )
                             }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            OutlinedButton(
-                                onClick = { showResetExercisesDialog = true },
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                            ) {
-                                Text("Reset", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
-                            }
+                            Spacer(modifier = Modifier.width(Dimens.sm))
+                            GfSecondaryButton(
+                                text = "Reset",
+                                compact = true,
+                                onClick = { showResetExercisesDialog = true }
+                            )
                         }
 
                         // Trash Row
@@ -1349,47 +1360,42 @@ fun ProfileScreen(
                                 Text(
                                     text = "Trash & Deleted Items",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = GetFitTheme.colors.textPrimary
                                 )
                                 Text(
                                     text = "${uiState.trashItems.size} items in trash • 10-day retention",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = GetFitTheme.colors.textSecondary
                                 )
                             }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            FilledTonalButton(
-                                onClick = { showTrashDialog = true },
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                            ) {
-                                Text("Trash (${uiState.trashItems.size})", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
-                            }
+                            Spacer(modifier = Modifier.width(Dimens.sm))
+                            GfSecondaryButton(
+                                text = "Trash (${uiState.trashItems.size})",
+                                compact = true,
+                                onClick = { showTrashDialog = true }
+                            )
                         }
                     }
 
-                    Divider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
+                    Divider(color = GetFitTheme.colors.hairline, thickness = 1.dp)
 
                     // Data Backup & Portability
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            text = "DATA BACKUP & DEVICE TRANSFER",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 1.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
+                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.sm)) {
+                        GfOverline(text = "Data Backup & Device Transfer")
                         Text(
                             text = "All your workouts, nutrition, and water history are permanently stored on this device. Create a backup file anytime to safely switch phones or prevent data loss.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = GetFitTheme.colors.textSecondary
                         )
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                         ) {
-                            OutlinedButton(
+                            GfSecondaryButton(
+                                text = "Export Backup",
+                                compact = true,
                                 onClick = {
                                     viewModel.exportBackup(context) { file ->
                                         if (file != null) {
@@ -1413,14 +1419,12 @@ fun ProfileScreen(
                                         }
                                     }
                                 },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                            ) {
-                                Text("Export Backup", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
-                            }
+                                modifier = Modifier.weight(1f)
+                            )
 
-                            Button(
+                            GfSecondaryButton(
+                                text = "Restore Backup",
+                                compact = true,
                                 onClick = {
                                     restoreBackupLauncher.launch(
                                         arrayOf(
@@ -1431,22 +1435,16 @@ fun ProfileScreen(
                                         )
                                     )
                                 },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                            ) {
-                                Text("Restore Backup", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
-                            }
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
 
-                    Button(
+                    GfPrimaryButton(
+                        text = "Done",
                         onClick = { showSettingsDialog = false },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("Done")
-                    }
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }
@@ -1494,31 +1492,32 @@ private fun MealReminderRow(
             Text(
                 text = mealName,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                color = GetFitTheme.colors.textPrimary
             )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
                 modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .clickable { showTimePicker = true }
+                    .clip(RoundedCornerShape(Dimens.xs))
+                    .pressable(onClick = { showTimePicker = true })
                     .padding(vertical = 2.dp)
             ) {
                 Text(
                     text = "Time: $time",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
+                    color = GetFitTheme.colors.accent,
+                    fontWeight = FontWeight.SemiBold
                 )
                 Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
+                    shape = RoundedCornerShape(Dimens.xs),
+                    color = GetFitTheme.colors.surface2
                 ) {
                     Text(
                         text = "Change",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = GetFitTheme.colors.textSecondary,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
@@ -1526,7 +1525,11 @@ private fun MealReminderRow(
         }
         Switch(
             checked = enabled,
-            onCheckedChange = onToggle
+            onCheckedChange = onToggle,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = GetFitTheme.colors.onAccent,
+                checkedTrackColor = GetFitTheme.colors.accent
+            )
         )
     }
 

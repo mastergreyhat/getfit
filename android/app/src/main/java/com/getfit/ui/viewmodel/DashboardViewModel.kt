@@ -13,6 +13,7 @@ import com.getfit.data.entity.WeightLog
 import com.getfit.data.entity.WorkoutLog
 import com.getfit.data.repository.GetFitRepository
 import com.getfit.ui.util.StreakManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -44,6 +45,13 @@ data class DayAdherence(
     val isToday: Boolean
 )
 
+data class MealStatus(
+    val mealType: String,   // "Breakfast", "Lunch", "Dinner"
+    val scheduledTime: String,
+    val isLogged: Boolean,
+    val loggedSummary: String = ""
+)
+
 data class DashboardUiState(
     val userProfile: UserProfile = UserProfile(),
     val totalCalories: Double = 0.0,
@@ -58,6 +66,7 @@ data class DashboardUiState(
     val nextMealTitle: String = "Post-Workout Snack",
     val nextMealTime: String = "17:30",
     val nextMealSuggestion: String = "Whey Protein + 1 Banana (35g Protein)",
+    val mealStatusList: List<MealStatus> = emptyList(),
     val motivationalQuote: String = "Consistency is the key to building real muscle. Show up today!",
     val currentStreak: Int = 0,
     val bestStreak: Int = 0,
@@ -99,11 +108,12 @@ private data class DashboardActivityTotals(
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = GetFitRepository(AppDatabase.getDatabase(application))
 
-    private fun getTodayDate(): String =
-        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+    private val sdfDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    private val sdfTime = SimpleDateFormat("HH:mm", Locale.getDefault())
+    private val sdfDayLetter = SimpleDateFormat("E", Locale.getDefault())
 
-    private fun getCurrentTime(): String =
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+    private fun getTodayDate(): String = sdfDate.format(Date())
+    private fun getCurrentTime(): String = sdfTime.format(Date())
 
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
@@ -142,7 +152,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         val randomQuote = quotes[Random().nextInt(quotes.size)]
         val cal7 = Calendar.getInstance()
         cal7.add(Calendar.DAY_OF_YEAR, -6)
-        val sevenDaysAgo = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal7.time)
+        val sevenDaysAgo = sdfDate.format(cal7.time)
 
         viewModelScope.launch {
             val nutritionFlow = combine(
@@ -186,13 +196,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 val streak = calculateStreakData(activeDates)
 
                 // 7-Day Adherence Sparkline
-                val daySdf = SimpleDateFormat("E", Locale.getDefault())
+                val daySdf = sdfDayLetter
                 val rangeByDate = extras.rangeFoodLogs.groupBy { it.date }
                 val past7Days = mutableListOf<DayAdherence>()
                 val sparkCal = Calendar.getInstance()
                 sparkCal.add(Calendar.DAY_OF_YEAR, -6)
                 for (i in 0..6) {
-                    val dStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(sparkCal.time)
+                    val dStr = sdfDate.format(sparkCal.time)
                     val label = daySdf.format(sparkCal.time).take(1)
                     val dailyCal = rangeByDate[dStr]?.sumOf { it.totalCalories } ?: 0.0
                     val isMet = dailyCal >= (user.dailyCalorieTarget * 0.85).coerceAtLeast(1000.0)
@@ -254,6 +264,23 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 // Check which meal categories user has ALREADY logged today
                 val loggedMealTypes = activity.mealLogs.map { it.mealType.trim().lowercase() }.toSet()
 
+                // Build Breakfast/Lunch/Dinner status directly from diary logs + user schedule (snacks excluded)
+                val defaultTimes = mapOf("Breakfast" to "08:00", "Lunch" to "13:00", "Dinner" to "20:00")
+                val mealStatusList = listOf("Breakfast", "Lunch", "Dinner").map { category ->
+                    val customTime = scheduleMap[category.lowercase()]?.scheduledTime?.takeIf { it.isNotBlank() }
+                        ?: defaultTimes.getValue(category)
+                    val logs = activity.mealLogs.filter { it.mealType.contains(category, ignoreCase = true) }
+                    val summary = if (logs.isNotEmpty()) {
+                        logs.joinToString(", ") { it.foodName.substringBefore(":").trim() }
+                    } else ""
+                    MealStatus(
+                        mealType = category,
+                        scheduledTime = customTime,
+                        isLogged = logs.isNotEmpty(),
+                        loggedSummary = summary
+                    )
+                }
+
                 val unloggedMeals = scheduledMeals.filter { meal ->
                     val isLogged = loggedMealTypes.contains(meal.mealType.trim().lowercase()) ||
                         (meal.mealType.contains("Breakfast", ignoreCase = true) && loggedMealTypes.contains("breakfast")) ||
@@ -295,6 +322,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     nextMealTitle = nextMealTitle,
                     nextMealTime = nextMealTime,
                     nextMealSuggestion = nextMealSuggestion,
+                    mealStatusList = mealStatusList,
                     motivationalQuote = randomQuote,
                     currentStreak = streak.currentStreak,
                     bestStreak = streak.bestStreak,
@@ -313,7 +341,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     allActiveDates = activeDates,
                     streakDates = StreakManager.getActiveStreakDates(getApplication())
                 )
-            }.collect { newState ->
+            }.flowOn(Dispatchers.Default).collect { newState ->
                 _uiState.value = newState
             }
         }

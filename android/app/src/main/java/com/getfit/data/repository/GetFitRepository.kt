@@ -622,4 +622,26 @@ class GetFitRepository(private val database: AppDatabase) {
 
         "Restored: $restoredWorkouts workouts, $restoredFoodLogs meals, $restoredWaterLogs water logs."
     }
+
+    /**
+     * Clears all user-specific tables and custom items while preserving built-in foods and exercises.
+     * Guarantees strict isolation between Guest mode and logged-in accounts.
+     */
+    suspend fun clearUserScopedData() = withContext(Dispatchers.IO) {
+        database.runInTransaction {
+            val db = database.openHelper.writableDatabase
+            db.execSQL("DELETE FROM food_logs")
+            db.execSQL("DELETE FROM workout_logs")
+            db.execSQL("DELETE FROM weight_logs")
+            db.execSQL("DELETE FROM water_logs")
+            db.execSQL("DELETE FROM meal_schedules")
+            db.execSQL("DELETE FROM trash_items")
+            db.execSQL("DELETE FROM stopwatch_records")
+            db.execSQL("DELETE FROM user_profile")
+            db.execSQL("DELETE FROM food_items WHERE isCustom = 1")
+            db.execSQL("DELETE FROM exercises WHERE isCustom = 1")
+        }
+        userProfileDao.insertOrUpdate(UserProfile())
+        database.invalidationTracker.refreshVersionsAsync()
+    }
 }

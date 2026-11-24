@@ -1,24 +1,64 @@
 package com.getfit.ui.components.core
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.getfit.ui.theme.Dimens
 import com.getfit.ui.theme.GetFitTheme
+
+/**
+ * Lightweight arc spinner that avoids Material3 KeyframesSpec version mismatches.
+ */
+@Composable
+private fun GfButtonSpinner(
+    size: Dp,
+    strokeWidth: Dp,
+    color: Color
+) {
+    val transition = rememberInfiniteTransition(label = "gf_btn_spinner")
+    val angle by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 800, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "gf_btn_spinner_angle"
+    )
+    Canvas(modifier = Modifier.size(size)) {
+        drawArc(
+            color = color,
+            startAngle = angle,
+            sweepAngle = 270f,
+            useCenter = false,
+            style = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round)
+        )
+    }
+}
 
 /**
  * Primary CTA Button: 56dp tall, fully rounded, electric lime accent fill,
@@ -43,8 +83,8 @@ fun GfPrimaryButton(
         contentAlignment = Alignment.Center
     ) {
         if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
+            GfButtonSpinner(
+                size = 20.dp,
                 strokeWidth = 2.5.dp,
                 color = GetFitTheme.colors.onAccent
             )
@@ -97,8 +137,8 @@ fun GfSecondaryButton(
         contentAlignment = Alignment.Center
     ) {
         if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(if (compact) 16.dp else 20.dp),
+            GfButtonSpinner(
+                size = if (compact) 16.dp else 20.dp,
                 strokeWidth = 2.dp,
                 color = GetFitTheme.colors.textPrimary
             )

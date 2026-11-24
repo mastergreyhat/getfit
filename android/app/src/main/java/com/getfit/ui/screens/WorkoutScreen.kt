@@ -1,7 +1,10 @@
 package com.getfit.ui.screens
 
+import com.getfit.ui.theme.Dimens
 import com.getfit.ui.theme.GetFitTheme
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -10,33 +13,24 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
@@ -47,32 +41,43 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import com.getfit.data.PlannedExercise
-import com.getfit.data.WorkoutDay
 import com.getfit.data.entity.Exercise
 import com.getfit.data.entity.StopwatchRecord
-import com.getfit.data.entity.WorkoutLog
 import com.getfit.ui.components.AddCustomExerciseDialog
 import com.getfit.ui.components.ExerciseCard
 import com.getfit.ui.components.ModifyPastDateDialog
 import com.getfit.ui.components.StopwatchDialog
 import com.getfit.ui.components.StrengthCurveChart
 import com.getfit.ui.components.StrengthCurvePoint
+import com.getfit.ui.components.core.GfBigNumber
+import com.getfit.ui.components.core.GfCard
+import com.getfit.ui.components.core.GfCheckBadge
+import com.getfit.ui.components.core.GfChip
+import com.getfit.ui.components.core.GfChipRow
+import com.getfit.ui.components.core.GfHeroCard
+import com.getfit.ui.components.core.GfStatusPill
+import com.getfit.ui.components.core.GfPrimaryButton
+import com.getfit.ui.components.core.GfSecondaryButton
+import com.getfit.ui.components.core.GfSectionHeader
+import com.getfit.ui.components.core.GfSegmentedControl
+import com.getfit.ui.components.core.GfTextButton
+import com.getfit.ui.components.core.GfTextField
+import com.getfit.ui.components.core.gfBottomBarPadding
+import com.getfit.ui.components.core.pressable
 import com.getfit.ui.util.AppDateManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import com.getfit.ui.theme.CaloriesOrange
 import com.getfit.ui.viewmodel.WorkoutViewModel
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PressableCategoryChip(
     label: String,
@@ -81,39 +86,36 @@ fun PressableCategoryChip(
     onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val containerColor = if (isSelected) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.surface
-    }
-    val contentColor = if (isSelected) {
-        MaterialTheme.colorScheme.onPrimaryContainer
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    val borderColor = if (isSelected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
-    }
+    val bgColor by animateColorAsState(
+        targetValue = if (isSelected) GetFitTheme.colors.surface3 else GetFitTheme.colors.surface2,
+        animationSpec = tween(durationMillis = 200),
+        label = "cat_chip_bg"
+    )
+    val textColor by animateColorAsState(
+        targetValue = if (isSelected) GetFitTheme.colors.accent else GetFitTheme.colors.textSecondary,
+        animationSpec = tween(durationMillis = 200),
+        label = "cat_chip_text"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected) GetFitTheme.colors.accent.copy(alpha = 0.45f) else GetFitTheme.colors.hairline,
+        animationSpec = tween(durationMillis = 200),
+        label = "cat_chip_border"
+    )
 
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = containerColor,
-        border = BorderStroke(1.dp, borderColor),
+    Box(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
+            .pressable(onClick = onClick, onLongClick = onLongClick)
+            .clip(CircleShape)
+            .background(bgColor)
+            .border(1.dp, borderColor, CircleShape)
+            .padding(horizontal = Dimens.lg, vertical = Dimens.sm),
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            color = contentColor,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+            color = textColor
         )
     }
 }
@@ -267,45 +269,45 @@ fun WorkoutScreen(
         val ex = selectedExerciseToManage!!
         AlertDialog(
             onDismissRequest = { selectedExerciseToManage = null },
-            title = { Text(ex.name, fontWeight = FontWeight.Bold) },
+            containerColor = GetFitTheme.colors.surface1,
+            titleContentColor = GetFitTheme.colors.textPrimary,
+            textContentColor = GetFitTheme.colors.textSecondary,
+            title = { Text(ex.name, style = MaterialTheme.typography.titleLarge) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(Dimens.sm)) {
                     Text(
                         text = "${ex.muscleGroup} • ${ex.equipment}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = GetFitTheme.colors.textSecondary
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("Select an action for this master catalog exercise:")
+                    Spacer(modifier = Modifier.height(Dimens.xs))
+                    Text(
+                        text = "Select an action for this master catalog exercise:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = GetFitTheme.colors.textSecondary
+                    )
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    exerciseToEdit = ex
-                    selectedExerciseToManage = null
-                }) {
-                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Modify Exercise")
-                }
+                GfSecondaryButton(
+                    text = "Modify Exercise",
+                    icon = Icons.Default.Edit,
+                    compact = true,
+                    onClick = {
+                        exerciseToEdit = ex
+                        selectedExerciseToManage = null
+                    }
+                )
             },
             dismissButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(
-                        onClick = {
-                            exerciseToDelete = ex
-                            selectedExerciseToManage = null
-                        },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Delete from Catalog")
+                GfTextButton(
+                    text = "Delete from Catalog",
+                    color = GetFitTheme.colors.danger,
+                    onClick = {
+                        exerciseToDelete = ex
+                        selectedExerciseToManage = null
                     }
-                    TextButton(onClick = { selectedExerciseToManage = null }) {
-                        Text("Cancel")
-                    }
-                }
+                )
             }
         )
     }
@@ -345,27 +347,27 @@ fun WorkoutScreen(
         val ex = exerciseToDelete!!
         AlertDialog(
             onDismissRequest = { exerciseToDelete = null },
-            title = { Text("Delete from Master Catalog?", fontWeight = FontWeight.Bold) },
+            containerColor = GetFitTheme.colors.surface1,
+            titleContentColor = GetFitTheme.colors.textPrimary,
+            textContentColor = GetFitTheme.colors.textSecondary,
+            title = { Text("Delete from Master Catalog?", style = MaterialTheme.typography.titleLarge) },
             text = {
-                Text("Are you sure you want to delete \"${ex.name}\"? It will be removed from your master exercise library and moved to Trash (where it can be restored within 10 days from Settings).")
+                Text(
+                    text = "Are you sure you want to delete \"${ex.name}\"? It will be removed from your master exercise library and moved to Trash (where it can be restored within 10 days from Settings).",
+                    style = MaterialTheme.typography.bodyMedium
+                )
             },
             confirmButton = {
-                Button(
+                GfTextButton(
+                    text = "Move to Trash",
+                    color = GetFitTheme.colors.danger,
                     onClick = {
                         viewModel.deleteExercise(ex)
                         feedbackMessage = "\"${ex.name}\" moved to Trash"
                         showFeedbackSnackbar = true
                         exerciseToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Move to Trash", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { exerciseToDelete = null }) {
-                    Text("Cancel")
-                }
+                    }
+                )
             }
         )
     }
@@ -375,38 +377,34 @@ fun WorkoutScreen(
         val cat = categoryToManage!!
         AlertDialog(
             onDismissRequest = { categoryToManage = null },
-            title = { Text("Manage \"$cat\"", fontWeight = FontWeight.Bold) },
+            containerColor = GetFitTheme.colors.surface1,
+            titleContentColor = GetFitTheme.colors.textPrimary,
+            textContentColor = GetFitTheme.colors.textSecondary,
+            title = { Text("Manage \"$cat\"", style = MaterialTheme.typography.titleLarge) },
             text = {
-                Text("Choose an action for this body part category:")
+                Text("Choose an action for this body part category:", style = MaterialTheme.typography.bodyMedium)
             },
             confirmButton = {
-                Button(onClick = {
-                    categoryToRename = cat
-                    renameCategoryInput = cat
-                    categoryToManage = null
-                }) {
-                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Rename Category")
-                }
+                GfSecondaryButton(
+                    text = "Rename Category",
+                    icon = Icons.Default.Edit,
+                    compact = true,
+                    onClick = {
+                        categoryToRename = cat
+                        renameCategoryInput = cat
+                        categoryToManage = null
+                    }
+                )
             },
             dismissButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(
-                        onClick = {
-                            categoryToDelete = cat
-                            categoryToManage = null
-                        },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Delete")
+                GfTextButton(
+                    text = "Delete",
+                    color = GetFitTheme.colors.danger,
+                    onClick = {
+                        categoryToDelete = cat
+                        categoryToManage = null
                     }
-                    TextButton(onClick = { categoryToManage = null }) {
-                        Text("Cancel")
-                    }
-                }
+                )
             }
         )
     }
@@ -423,25 +421,20 @@ fun WorkoutScreen(
 
         AlertDialog(
             onDismissRequest = { categoryToRename = null },
-            title = { Text("Rename Category", fontWeight = FontWeight.Bold) },
+            containerColor = GetFitTheme.colors.surface1,
+            titleContentColor = GetFitTheme.colors.textPrimary,
+            textContentColor = GetFitTheme.colors.textSecondary,
+            title = { Text("Rename Category", style = MaterialTheme.typography.titleLarge) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Enter new name for \"$oldCat\":")
-                    OutlinedTextField(
+                Column(verticalArrangement = Arrangement.spacedBy(Dimens.sm)) {
+                    Text("Enter new name for \"$oldCat\":", style = MaterialTheme.typography.bodyMedium)
+                    GfTextField(
                         value = renameCategoryInput,
                         onValueChange = { renameCategoryInput = it },
-                        label = { Text("Category Name") },
+                        label = "Category Name",
                         isError = isDuplicateCat,
-                        supportingText = {
-                            if (isDuplicateCat) {
-                                Text(
-                                    text = "Category \"${renameCategoryInput.trim()}\" already exists.",
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            }
-                        },
-                        singleLine = true,
+                        supportingText = if (isDuplicateCat) "Category \"${renameCategoryInput.trim()}\" already exists." else null,
+                        imeAction = ImeAction.Done,
                         modifier = Modifier
                             .fillMaxWidth()
                             .onPreviewKeyEvent { keyEvent ->
@@ -452,28 +445,21 @@ fun WorkoutScreen(
                                     }
                                 }
                                 false
-                            },
-                        shape = RoundedCornerShape(12.dp)
+                            }
                     )
                 }
             },
             confirmButton = {
-                Button(
+                GfTextButton(
+                    text = "Save",
+                    enabled = renameCategoryInput.isNotBlank() && !isDuplicateCat,
                     onClick = {
                         if (renameCategoryInput.isNotBlank() && !isDuplicateCat) {
                             viewModel.renameMuscleGroup(oldCat, renameCategoryInput.trim())
                             categoryToRename = null
                         }
-                    },
-                    enabled = renameCategoryInput.isNotBlank() && !isDuplicateCat
-                ) {
-                    Text("Save", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { categoryToRename = null }) {
-                    Text("Cancel")
-                }
+                    }
+                )
             }
         )
     }
@@ -483,25 +469,25 @@ fun WorkoutScreen(
         val cat = categoryToDelete!!
         AlertDialog(
             onDismissRequest = { categoryToDelete = null },
-            title = { Text("Delete Category \"$cat\"?", fontWeight = FontWeight.Bold) },
+            containerColor = GetFitTheme.colors.surface1,
+            titleContentColor = GetFitTheme.colors.textPrimary,
+            textContentColor = GetFitTheme.colors.textSecondary,
+            title = { Text("Delete Category \"$cat\"?", style = MaterialTheme.typography.titleLarge) },
             text = {
-                Text("Are you sure you want to delete the \"$cat\" category and all exercises in it? This action cannot be undone.")
+                Text(
+                    text = "Are you sure you want to delete the \"$cat\" category and all exercises in it? This action cannot be undone.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
             },
             confirmButton = {
-                Button(
+                GfTextButton(
+                    text = "Delete Category",
+                    color = GetFitTheme.colors.danger,
                     onClick = {
                         viewModel.deleteMuscleGroup(cat)
                         categoryToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Delete Category", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { categoryToDelete = null }) {
-                    Text("Cancel")
-                }
+                    }
+                )
             }
         )
     }
@@ -549,27 +535,35 @@ fun WorkoutScreen(
     }
 
     Scaffold(
+        containerColor = GetFitTheme.colors.background,
         snackbarHost = {
             AnimatedVisibility(
                 visible = showFeedbackSnackbar,
                 enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
                 exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 })
             ) {
-                Surface(
+                Box(
                     modifier = Modifier
-                        .padding(bottom = 76.dp, start = 20.dp, end = 20.dp)
-                        .fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.inverseSurface,
-                    shadowElevation = 6.dp
+                        .fillMaxWidth()
+                        .gfBottomBarPadding()
+                        .padding(horizontal = Dimens.screenGutter, vertical = Dimens.sm),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = feedbackMessage,
-                        color = MaterialTheme.colorScheme.inverseOnSurface,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(Dimens.xl),
+                        color = GetFitTheme.colors.surface3,
+                        contentColor = GetFitTheme.colors.textPrimary,
+                        border = BorderStroke(1.dp, GetFitTheme.colors.hairline),
+                        shadowElevation = 6.dp
+                    ) {
+                        Text(
+                            text = feedbackMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 2,
+                            modifier = Modifier.padding(horizontal = Dimens.lg, vertical = Dimens.sm)
+                        )
+                    }
                 }
             }
         },
@@ -577,8 +571,10 @@ fun WorkoutScreen(
             if (selectedTab == 0) {
                 FloatingActionButton(
                     onClick = { showStopwatch = true },
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    containerColor = GetFitTheme.colors.accent,
+                    contentColor = GetFitTheme.colors.onAccent,
+                    shape = CircleShape,
+                    modifier = Modifier.gfBottomBarPadding()
                 ) {
                     Icon(Icons.Default.Timer, contentDescription = "Stopwatch")
                 }
@@ -590,30 +586,17 @@ fun WorkoutScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Tab Row
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = GetFitTheme.colors.surface1,
-                contentColor = GetFitTheme.colors.accent,
-                divider = { Divider(color = GetFitTheme.colors.hairline) }
+            // Pinned Segmented Control
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dimens.screenGutter, vertical = Dimens.sm)
             ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { viewModel.selectTab(index) },
-                        selectedContentColor = GetFitTheme.colors.accent,
-                        unselectedContentColor = GetFitTheme.colors.textSecondary,
-                        text = {
-                            Text(
-                                text = title,
-                                fontWeight = if (selectedTab == index) FontWeight.SemiBold else FontWeight.Normal,
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                        }
-                    )
-                }
+                GfSegmentedControl(
+                    items = tabs,
+                    selectedIndex = selectedTab,
+                    onSelect = viewModel::selectTab
+                )
             }
 
             when (selectedTab) {
@@ -705,51 +688,57 @@ private fun PrescribedWorkoutTab(
 
     LazyColumn(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
+            .fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(Dimens.md),
+        contentPadding = PaddingValues(
+            start = Dimens.screenGutter,
+            end = Dimens.screenGutter,
+            top = Dimens.md,
+            bottom = com.getfit.ui.components.core.gfBottomBarContentPadding() + Dimens.lg
+        )
     ) {
         // 1. Date Navigation Bar (Ties Training to Date)
         item(key = "training_date_nav") {
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            GfCard(
+                cornerRadius = Dimens.lg,
+                contentPadding = PaddingValues(horizontal = Dimens.sm, vertical = Dimens.xs),
+                useGradient = false,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onPreviousDate) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous Day", modifier = Modifier.size(18.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Previous Day",
+                            tint = GetFitTheme.colors.textPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onOpenCalendarPicker() }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .clip(RoundedCornerShape(Dimens.sm))
+                            .pressable(onClick = onOpenCalendarPicker)
+                            .padding(horizontal = Dimens.sm, vertical = Dimens.xs)
                     ) {
                         Icon(
                             imageVector = Icons.Default.CalendarMonth,
                             contentDescription = "Pick Date",
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = GetFitTheme.colors.accent,
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
                             text = uiState.dateDisplayLabel,
                             style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             softWrap = false,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = GetFitTheme.colors.textPrimary
                         )
                     }
                     IconButton(
@@ -760,7 +749,7 @@ private fun PrescribedWorkoutTab(
                             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = "Next Day",
                             modifier = Modifier.size(18.dp),
-                            tint = if (AppDateManager.canGoNext()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                            tint = if (AppDateManager.canGoNext()) GetFitTheme.colors.textPrimary else GetFitTheme.colors.textTertiary
                         )
                     }
                 }
@@ -774,56 +763,39 @@ private fun PrescribedWorkoutTab(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                Column(modifier = Modifier.weight(1f).padding(end = Dimens.sm)) {
                     Text(
                         text = "${plan.name} (${plan.daysPerWeek} Days/Week)",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis
+                        color = GetFitTheme.colors.textPrimary
                     )
                     Text(
                         text = plan.description,
-                        style = MaterialTheme.typography.labelSmall,
-                        lineHeight = 13.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GetFitTheme.colors.textSecondary
                     )
                 }
-                Button(
-                    onClick = onAddExerciseToToday,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Add Exercise",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
+                GfSecondaryButton(
+                    text = "Add Exercise",
+                    icon = Icons.Default.Add,
+                    compact = true,
+                    onClick = onAddExerciseToToday
+                )
             }
         }
 
         // 3. Day Selector Chips
         item(key = "training_day_selector") {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                itemsIndexed(plan.days, key = { idx, day -> "day_${day.dayName}_$idx" }) { index, day ->
-                    FilterChip(
-                        selected = uiState.selectedDayIndex == index,
-                        onClick = { onSelectDay(index) },
-                        label = { Text(day.dayName) }
-                    )
-                }
-            }
+            GfChipRow(
+                items = plan.days,
+                selectedItem = selectedDay,
+                onItemSelected = { day ->
+                    val index = plan.days.indexOf(day)
+                    if (index >= 0) onSelectDay(index)
+                },
+                label = { it.dayName },
+                contentPadding = PaddingValues(0.dp)
+            )
         }
 
         // 4. Planned Exercises List
@@ -909,10 +881,14 @@ private fun AllExercisesTab(
 
     LazyColumn(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
+            .fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(Dimens.md),
+        contentPadding = PaddingValues(
+            start = Dimens.screenGutter,
+            end = Dimens.screenGutter,
+            top = Dimens.md,
+            bottom = com.getfit.ui.components.core.gfBottomBarContentPadding() + Dimens.lg
+        )
     ) {
         item(key = "all_ex_header") {
             Row(
@@ -920,71 +896,49 @@ private fun AllExercisesTab(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f).padding(end = Dimens.sm)) {
                     Text(
                         text = "${filteredExercises.size} Exercises",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        style = MaterialTheme.typography.titleMedium,
+                        color = GetFitTheme.colors.textPrimary
                     )
                     Text(
                         text = "Press & hold to edit",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GetFitTheme.colors.textSecondary
                     )
                 }
-                OutlinedButton(
-                    onClick = onOpenAddCustomExercise,
-                    shape = RoundedCornerShape(20.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Create Exercise",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                GfSecondaryButton(
+                    text = "Create Exercise",
+                    icon = Icons.Default.Add,
+                    compact = true,
+                    onClick = onOpenAddCustomExercise
+                )
             }
         }
 
         item(key = "all_ex_search") {
-            OutlinedTextField(
+            GfTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = {
-                    Text(
-                        text = "Search 60+ exercises...",
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
+                placeholder = "Search 60+ exercises...",
+                leadingIcon = Icons.Default.Search,
+                imeAction = ImeAction.Search,
+                trailingIcon = if (searchQuery.isNotEmpty()) {
+                    {
+                        IconButton(
+                            onClick = { searchQuery = "" },
+                            modifier = Modifier.size(24.dp)
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Clear",
+                                tint = GetFitTheme.colors.textSecondary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                     }
-                },
+                } else null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .onPreviewKeyEvent { keyEvent ->
@@ -995,15 +949,13 @@ private fun AllExercisesTab(
                             }
                         }
                         false
-                    },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
+                    }
             )
         }
 
         item(key = "all_ex_categories") {
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.sm),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 items(muscleGroups, key = { it }) { group ->
@@ -1022,26 +974,24 @@ private fun AllExercisesTab(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 32.dp),
+                        .padding(vertical = Dimens.xxxl),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(Dimens.md)
                     ) {
                         Text(
                             text = "No exercises found for \"$searchQuery\"",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = GetFitTheme.colors.textSecondary
                         )
-                        Button(
-                            onClick = onOpenAddCustomExercise,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Add Custom Exercise", fontWeight = FontWeight.Bold)
-                        }
+                        GfSecondaryButton(
+                            text = "Add Custom Exercise",
+                            icon = Icons.Default.Add,
+                            compact = true,
+                            onClick = onOpenAddCustomExercise
+                        )
                     }
                 }
             }
@@ -1095,54 +1045,70 @@ private fun WorkoutProgressTab(
 
     LazyColumn(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(bottom = 80.dp)
+            .fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(Dimens.lg),
+        contentPadding = PaddingValues(
+            start = Dimens.screenGutter,
+            end = Dimens.screenGutter,
+            top = Dimens.md,
+            bottom = com.getfit.ui.components.core.gfBottomBarContentPadding() + Dimens.lg
+        )
     ) {
-        // Summary Banner
+        // Hero Summary Banner (One hero per screen)
         item {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            GfHeroCard(modifier = Modifier.fillMaxWidth()) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceAround
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "${uiState.recentLogs.map { it.date }.distinct().size}",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = GetFitTheme.colors.success
+                        GfBigNumber(
+                            value = uiState.recentLogs.map { it.date }.distinct().size,
+                            color = GetFitTheme.colors.success,
+                            style = MaterialTheme.typography.headlineMedium
                         )
-                        Text(text = "Days Trained", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            text = "Days Trained",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GetFitTheme.colors.textSecondary
+                        )
                     }
-                    Divider(modifier = Modifier.height(40.dp).width(1.dp))
+                    Divider(
+                        modifier = Modifier.height(40.dp).width(1.dp),
+                        color = GetFitTheme.colors.hairline
+                    )
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "${uiState.personalBests.size}",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = CaloriesOrange
+                        GfBigNumber(
+                            value = uiState.personalBests.size,
+                            color = GetFitTheme.colors.calories,
+                            style = MaterialTheme.typography.headlineMedium
                         )
-                        Text(text = "Personal Records", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            text = "Personal Records",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GetFitTheme.colors.textSecondary
+                        )
                     }
-                    Divider(modifier = Modifier.height(40.dp).width(1.dp))
+                    Divider(
+                        modifier = Modifier.height(40.dp).width(1.dp),
+                        color = GetFitTheme.colors.hairline
+                    )
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "85%",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                        GfBigNumber(
+                            value = 85,
+                            unit = "%",
+                            color = GetFitTheme.colors.textPrimary,
+                            style = MaterialTheme.typography.headlineMedium
                         )
-                        Text(text = "Protein Hit Rate", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            text = "Protein Hit Rate",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GetFitTheme.colors.textSecondary,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
@@ -1150,44 +1116,22 @@ private fun WorkoutProgressTab(
 
         // Strength Curve Analytics Section
         item {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Strength Progression Curve",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+            GfCard(modifier = Modifier.fillMaxWidth()) {
+                Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
+                    Text(
+                        text = "Strength Progression Curve",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GetFitTheme.colors.textPrimary
+                    )
 
                     if (exercisesWithHistory.isNotEmpty()) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            exercisesWithHistory.forEach { exName ->
-                                FilterChip(
-                                    selected = selectedExerciseForCurve == exName,
-                                    onClick = { selectedExerciseForCurve = exName },
-                                    label = { Text(exName, style = MaterialTheme.typography.labelMedium) }
-                                )
-                            }
-                        }
+                        GfChipRow(
+                            items = exercisesWithHistory,
+                            selectedItem = selectedExerciseForCurve,
+                            onItemSelected = { selectedExerciseForCurve = it },
+                            contentPadding = PaddingValues(0.dp)
+                        )
 
                         if (historyForSelected.isNotEmpty()) {
                             val chartPoints = remember(historyForSelected) {
@@ -1201,7 +1145,7 @@ private fun WorkoutProgressTab(
                         Text(
                             text = "Log sets in workout sessions to track your strength curves over time!",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = GetFitTheme.colors.textSecondary
                         )
                     }
                 }
@@ -1210,10 +1154,9 @@ private fun WorkoutProgressTab(
 
         // Personal Bests Section
         item {
-            Text(
-                text = "Personal Records (PBs)",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+            GfSectionHeader(
+                title = "Personal Records (PBs)",
+                topSpacing = Dimens.sm
             )
         }
 
@@ -1222,7 +1165,7 @@ private fun WorkoutProgressTab(
                 Text(
                     text = "No personal bests logged yet. Start a workout session to log your weights!",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = GetFitTheme.colors.textSecondary
                 )
             }
         } else {
@@ -1231,29 +1174,32 @@ private fun WorkoutProgressTab(
                     ?: uiState.recentLogs.find { it.exerciseId == entry.key }?.exerciseName
                     ?: "Exercise"
 
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                GfCard(
+                    cornerRadius = Dimens.lg,
+                    contentPadding = PaddingValues(Dimens.lg),
+                    useGradient = false,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
+                            modifier = Modifier.weight(1f).padding(end = Dimens.sm),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.md)
                         ) {
-                            Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = CaloriesOrange)
+                            Icon(
+                                imageVector = Icons.Default.EmojiEvents,
+                                contentDescription = null,
+                                tint = GetFitTheme.colors.calories
+                            )
                             Text(
                                 text = exerciseName,
                                 style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                color = GetFitTheme.colors.textPrimary
                             )
                         }
                         Text(
@@ -1269,28 +1215,33 @@ private fun WorkoutProgressTab(
 
         // Timed Records (Planks & Holds) Section
         item {
-            Spacer(modifier = Modifier.height(8.dp))
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Dimens.sm),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                 ) {
-                    Icon(Icons.Default.Timer, contentDescription = null, tint = GetFitTheme.colors.success)
+                    Icon(
+                        imageVector = Icons.Default.Timer,
+                        contentDescription = null,
+                        tint = GetFitTheme.colors.success
+                    )
                     Text(
                         text = "Timed Records (Planks & Holds)",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.titleLarge,
+                        color = GetFitTheme.colors.textPrimary
                     )
                 }
                 if (uiState.stopwatchRecords.isNotEmpty()) {
                     Text(
                         text = "${uiState.stopwatchRecords.size} logged",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = GetFitTheme.colors.textSecondary
                     )
                 }
             }
@@ -1298,24 +1249,23 @@ private fun WorkoutProgressTab(
 
         if (uiState.stopwatchRecords.isEmpty()) {
             item {
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                GfCard(
+                    cornerRadius = Dimens.lg,
+                    contentPadding = PaddingValues(Dimens.lg),
+                    useGradient = false,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.xs)) {
                         Text(
                             text = "No timed records saved yet.",
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            color = GetFitTheme.colors.textPrimary
                         )
                         Text(
                             text = "Use the stopwatch in workouts to time and save planks, wall sits, dead hangs, and other holds!",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = GetFitTheme.colors.textSecondary
                         )
                     }
                 }
@@ -1324,59 +1274,58 @@ private fun WorkoutProgressTab(
             itemsIndexed(uiState.stopwatchRecords, key = { idx, record -> "stopwatch_${record.id}_$idx" }) { _, record ->
                 val isBest = bestTimedPerTitle[record.title.trim().lowercase()] == record.elapsedMillis
 
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                GfCard(
+                    cornerRadius = Dimens.lg,
+                    contentPadding = PaddingValues(Dimens.lg),
+                    useGradient = false,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
+                            modifier = Modifier.weight(1f).padding(end = Dimens.sm),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.md)
                         ) {
                             Box(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    .background(GetFitTheme.colors.surface2),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    Icons.Default.Timer,
+                                    imageVector = Icons.Default.Timer,
                                     contentDescription = null,
-                                    tint = if (isBest) CaloriesOrange else MaterialTheme.colorScheme.primary,
+                                    tint = if (isBest) GetFitTheme.colors.calories else GetFitTheme.colors.accent,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
                             Column {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
                                 ) {
                                     Text(
                                         text = record.title,
                                         style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.SemiBold
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = GetFitTheme.colors.textPrimary
                                     )
                                     if (isBest) {
                                         Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = CaloriesOrange.copy(alpha = 0.15f)
+                                            shape = RoundedCornerShape(Dimens.xs),
+                                            color = GetFitTheme.colors.calories.copy(alpha = 0.15f)
                                         ) {
                                             Text(
-                                                text = "★ Best",
+                                                text = "Best",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.Bold,
-                                                color = CaloriesOrange,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                color = GetFitTheme.colors.calories,
+                                                modifier = Modifier.padding(horizontal = Dimens.xs, vertical = 2.dp)
                                             )
                                         }
                                     }
@@ -1384,14 +1333,14 @@ private fun WorkoutProgressTab(
                                 Text(
                                     text = record.date,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = GetFitTheme.colors.textSecondary
                                 )
                             }
                         }
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
                         ) {
                             Text(
                                 text = record.formattedTime,
@@ -1404,9 +1353,9 @@ private fun WorkoutProgressTab(
                                 modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
-                                    Icons.Default.Delete,
+                                    imageVector = Icons.Default.Delete,
                                     contentDescription = "Delete record",
-                                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                    tint = GetFitTheme.colors.danger.copy(alpha = 0.8f),
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -1421,47 +1370,33 @@ private fun WorkoutProgressTab(
         val availableDates = allGroupedLogs.keys.sortedDescending()
 
         item {
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Recent Logs",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                if (selectedDateFilter != null) {
-                    TextButton(onClick = { selectedDateFilter = null }) {
-                        Text("Show All Dates", style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-            }
+            GfSectionHeader(
+                title = "Recent Logs",
+                topSpacing = Dimens.sm,
+                action = if (selectedDateFilter != null) "Show All Dates" else null,
+                onActionClick = { selectedDateFilter = null }
+            )
         }
 
         if (availableDates.size > 1) {
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = selectedDateFilter == null,
-                        onClick = { selectedDateFilter = null },
-                        label = { Text("All Dates (${availableDates.size})", style = MaterialTheme.typography.labelSmall) }
-                    )
-                    availableDates.forEach { date ->
-                        val count = allGroupedLogs[date]?.size ?: 0
-                        FilterChip(
-                            selected = selectedDateFilter == date,
-                            onClick = { selectedDateFilter = if (selectedDateFilter == date) null else date },
-                            label = { Text("$date ($count)", style = MaterialTheme.typography.labelSmall) }
-                        )
-                    }
-                }
+                val filterItems = listOf<String?>(null) + availableDates
+                GfChipRow(
+                    items = filterItems,
+                    selectedItem = selectedDateFilter,
+                    onItemSelected = { date ->
+                        selectedDateFilter = if (date != null && selectedDateFilter == date) null else date
+                    },
+                    label = { date ->
+                        if (date == null) {
+                            "All Dates (${availableDates.size})"
+                        } else {
+                            val count = allGroupedLogs[date]?.size ?: 0
+                            "$date ($count)"
+                        }
+                    },
+                    contentPadding = PaddingValues(0.dp)
+                )
             }
         }
 
@@ -1476,7 +1411,7 @@ private fun WorkoutProgressTab(
                 Text(
                     text = if (selectedDateFilter != null) "No workout logs found for $selectedDateFilter." else "No recent workout logs found.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = GetFitTheme.colors.textSecondary
                 )
             }
         } else {
@@ -1491,17 +1426,13 @@ private fun WorkoutProgressTab(
                     val totalSets = logs.size
                     val exerciseCount = groupedByExercise.size
 
-                    Card(
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    GfCard(
+                        cornerRadius = Dimens.lg,
+                        contentPadding = PaddingValues(Dimens.lg),
+                        useGradient = false,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(
-                            modifier = Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
                             // Date header row with summary pill badges
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1510,24 +1441,24 @@ private fun WorkoutProgressTab(
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.CalendarMonth,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
+                                        tint = GetFitTheme.colors.accent,
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Text(
                                         text = AppDateManager.getDateDisplayLabel(date),
                                         style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = GetFitTheme.colors.textPrimary
                                     )
                                 }
 
                                 Surface(
-                                    shape = RoundedCornerShape(6.dp),
+                                    shape = RoundedCornerShape(Dimens.xs),
                                     color = GetFitTheme.colors.success.copy(alpha = 0.12f),
                                     border = BorderStroke(0.5.dp, GetFitTheme.colors.success.copy(alpha = 0.3f))
                                 ) {
@@ -1536,12 +1467,12 @@ private fun WorkoutProgressTab(
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = GetFitTheme.colors.success,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        modifier = Modifier.padding(horizontal = Dimens.sm, vertical = 3.dp)
                                     )
                                 }
                             }
 
-                            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), thickness = 0.5.dp)
+                            Divider(color = GetFitTheme.colors.hairline, thickness = 1.dp)
 
                             // Concise list of exercises completed on this date
                             groupedByExercise.forEach { (exName, exSets) ->
@@ -1564,47 +1495,29 @@ private fun WorkoutProgressTab(
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.CheckCircle,
-                                                contentDescription = null,
-                                                tint = GetFitTheme.colors.success,
-                                                modifier = Modifier.size(13.dp)
-                                            )
+                                            GfCheckBadge(checked = true, size = 18.dp)
                                             Text(
                                                 text = exName,
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = FontWeight.SemiBold,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
-                                                color = MaterialTheme.colorScheme.onSurface
+                                                color = GetFitTheme.colors.textPrimary
                                             )
                                         }
                                         Text(
                                             text = setsSummary,
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = MaterialTheme.typography.bodySmall,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = GetFitTheme.colors.textSecondary
                                         )
                                     }
 
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Surface(
-                                        shape = RoundedCornerShape(4.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant
-                                    ) {
-                                        Text(
-                                            text = "${maxWeight.toInt()}kg ✓",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            maxLines = 1,
-                                            softWrap = false,
-                                            color = GetFitTheme.colors.success,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
+                                    Spacer(modifier = Modifier.width(Dimens.sm))
+                                    GfStatusPill(text = "${maxWeight.toInt()}kg")
                                 }
                             }
 
@@ -1613,7 +1526,7 @@ private fun WorkoutProgressTab(
                                     text = "Total volume lifted: ${totalVolume.toInt()} kg",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    color = GetFitTheme.colors.textSecondary,
                                     modifier = Modifier.align(Alignment.End)
                                 )
                             }
@@ -1653,11 +1566,13 @@ private fun AddExerciseToTodayDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = GetFitTheme.colors.surface1,
+        titleContentColor = GetFitTheme.colors.textPrimary,
+        textContentColor = GetFitTheme.colors.textSecondary,
         title = {
             Text(
                 text = "Add Exercise to $dayName",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.titleLarge
             )
         },
         text = {
@@ -1665,73 +1580,66 @@ private fun AddExerciseToTodayDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 480.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(Dimens.sm)
             ) {
                 Text(
                     text = "Pick an exercise from your master exercise library:",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = GetFitTheme.colors.textSecondary
                 )
 
                 // Search Box
-                OutlinedTextField(
+                GfTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = {
-                        Text(
-                            text = "Search exercises...",
-                            style = MaterialTheme.typography.labelMedium,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    trailingIcon = {
-                        if (searchQuery.isNotBlank()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp))
+                    placeholder = "Search exercises...",
+                    leadingIcon = Icons.Default.Search,
+                    imeAction = ImeAction.Search,
+                    trailingIcon = if (searchQuery.isNotBlank()) {
+                        {
+                            IconButton(
+                                onClick = { searchQuery = "" },
+                                modifier = Modifier.size(20.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear",
+                                    tint = GetFitTheme.colors.textSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
                             }
                         }
-                    },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
+                    } else null,
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 // Muscle category chips
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(muscleGroups) { group ->
-                        FilterChip(
-                            selected = selectedMuscle.equals(group, ignoreCase = true),
-                            onClick = { selectedMuscle = group },
-                            label = { Text(group, style = MaterialTheme.typography.labelSmall) }
-                        )
-                    }
-                }
+                GfChipRow(
+                    items = muscleGroups,
+                    selectedItem = selectedMuscle,
+                    onItemSelected = { selectedMuscle = it },
+                    contentPadding = PaddingValues(0.dp)
+                )
 
                 // Exercise Picker List
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(Dimens.xs)
                 ) {
                     if (filteredExercises.isEmpty()) {
                         item {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 16.dp),
+                                    .padding(vertical = Dimens.lg),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = "No matching exercises found in library.",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = GetFitTheme.colors.textSecondary
                                 )
                             }
                         }
@@ -1740,21 +1648,20 @@ private fun AddExerciseToTodayDialog(
                             val isSelected = selectedExercise?.id == ex.id
                             val isAlreadyInDay = existingPlannedNames.contains(ex.name.trim().lowercase())
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                shape = RoundedCornerShape(Dimens.sm),
+                                color = if (isSelected) GetFitTheme.colors.surface3 else GetFitTheme.colors.surface2,
                                 border = BorderStroke(
                                     1.dp,
-                                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                    if (isSelected) GetFitTheme.colors.accent else GetFitTheme.colors.hairline
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { selectedExercise = ex }
+                                    .pressable(onClick = { selectedExercise = ex })
                             ) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                                        .padding(horizontal = Dimens.md, vertical = Dimens.sm),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -1762,26 +1669,26 @@ private fun AddExerciseToTodayDialog(
                                         Text(
                                             text = ex.name,
                                             style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                            color = if (isSelected) GetFitTheme.colors.accent else GetFitTheme.colors.textPrimary
                                         )
                                         Text(
                                             text = "${ex.muscleGroup} • ${ex.equipment}",
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = GetFitTheme.colors.textSecondary
                                         )
                                     }
                                     if (isAlreadyInDay) {
                                         Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = MaterialTheme.colorScheme.surfaceVariant
+                                            shape = RoundedCornerShape(Dimens.xs),
+                                            color = GetFitTheme.colors.surface1
                                         ) {
                                             Text(
                                                 text = "In Routine",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.SemiBold,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                color = GetFitTheme.colors.textSecondary,
+                                                modifier = Modifier.padding(horizontal = Dimens.xs, vertical = 2.dp)
                                             )
                                         }
                                     }
@@ -1793,48 +1700,47 @@ private fun AddExerciseToTodayDialog(
 
                 // Target configuration for selected exercise
                 if (selectedExercise != null) {
-                    Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                    Divider(color = GetFitTheme.colors.hairline)
                     Text(
                         text = "Target for \"${selectedExercise!!.name}\":",
                         style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        fontWeight = FontWeight.SemiBold,
+                        color = GetFitTheme.colors.accent
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                     ) {
-                        OutlinedTextField(
+                        GfTextField(
                             value = setsText,
                             onValueChange = { setsText = it.filter { ch -> ch.isDigit() } },
-                            label = { Text("Sets", style = MaterialTheme.typography.labelSmall) },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp)
+                            label = "Sets",
+                            imeAction = ImeAction.Next,
+                            modifier = Modifier.weight(1f)
                         )
-                        OutlinedTextField(
+                        GfTextField(
                             value = repsText,
                             onValueChange = { repsText = it },
-                            label = { Text("Reps", style = MaterialTheme.typography.labelSmall) },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp)
+                            label = "Reps",
+                            imeAction = ImeAction.Next,
+                            modifier = Modifier.weight(1f)
                         )
                     }
-                    OutlinedTextField(
+                    GfTextField(
                         value = notesText,
                         onValueChange = { notesText = it },
-                        label = { Text("Notes (optional)", style = MaterialTheme.typography.labelSmall) },
-                        placeholder = { Text("e.g. Focus on full stretch") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
+                        label = "Notes (optional)",
+                        placeholder = "e.g. Focus on full stretch",
+                        imeAction = ImeAction.Done,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
         },
         confirmButton = {
-            Button(
+            GfTextButton(
+                text = "Add to $dayName",
+                enabled = selectedExercise != null,
                 onClick = {
                     val ex = selectedExercise
                     if (ex != null) {
@@ -1842,18 +1748,8 @@ private fun AddExerciseToTodayDialog(
                         val r = repsText.ifBlank { "8-10" }
                         onConfirm(ex.name, s, r, notesText)
                     }
-                },
-                enabled = selectedExercise != null
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Add to $dayName", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
+                }
+            )
         }
     )
 }
@@ -1876,77 +1772,69 @@ private fun ModifyTodayExerciseDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = GetFitTheme.colors.surface1,
+        titleContentColor = GetFitTheme.colors.textPrimary,
+        textContentColor = GetFitTheme.colors.textSecondary,
         title = {
             Text(
                 text = "Edit $exerciseName",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.titleLarge
             )
         },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(Dimens.md)
             ) {
                 Text(
                     text = "Adjust prescription for $dayName without affecting the master catalog:",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = GetFitTheme.colors.textSecondary
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                 ) {
-                    OutlinedTextField(
+                    GfTextField(
                         value = setsText,
                         onValueChange = { setsText = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("Sets") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp)
+                        label = "Sets",
+                        imeAction = ImeAction.Next,
+                        modifier = Modifier.weight(1f)
                     )
-                    OutlinedTextField(
+                    GfTextField(
                         value = repsText,
                         onValueChange = { repsText = it },
-                        label = { Text("Reps") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp)
+                        label = "Reps",
+                        imeAction = ImeAction.Next,
+                        modifier = Modifier.weight(1f)
                     )
                 }
-                OutlinedTextField(
+                GfTextField(
                     value = notesText,
                     onValueChange = { notesText = it },
-                    label = { Text("Notes") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
+                    label = "Notes",
+                    imeAction = ImeAction.Done,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
-            Button(onClick = {
-                val s = setsText.toIntOrNull() ?: 3
-                val r = repsText.ifBlank { "8-10" }
-                onConfirm(s, r, notesText)
-            }) {
-                Text("Save Changes", fontWeight = FontWeight.Bold)
-            }
+            GfTextButton(
+                text = "Save Changes",
+                onClick = {
+                    val s = setsText.toIntOrNull() ?: 3
+                    val r = repsText.ifBlank { "8-10" }
+                    onConfirm(s, r, notesText)
+                }
+            )
         },
         dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(
-                    onClick = onRemoveFromToday,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Delete (Move to Trash)")
-                }
-                TextButton(onClick = onDismiss) {
-                    Text("Cancel")
-                }
-            }
+            GfTextButton(
+                text = "Delete",
+                color = GetFitTheme.colors.danger,
+                onClick = onRemoveFromToday
+            )
         }
     )
 }
@@ -1986,19 +1874,17 @@ fun WorkoutDatePickerDialog(
     val dayLabels = listOf("M", "T", "W", "T", "F", "S", "S")
 
     Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        GfCard(
+            cornerRadius = Dimens.xl,
+            contentPadding = PaddingValues(Dimens.xl),
+            useGradient = false,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp)
+                .padding(vertical = Dimens.lg)
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(Dimens.lg)
             ) {
                 // Header with Month Navigation (< Month Year >) and Close Button
                 Row(
@@ -2008,20 +1894,19 @@ fun WorkoutDatePickerDialog(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                     ) {
                         Icon(
                             imageVector = Icons.Default.CalendarMonth,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = GetFitTheme.colors.accent,
                             modifier = Modifier.size(22.dp)
                         )
                         Column {
                             Text(
                                 text = "Select Workout Date",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = GetFitTheme.colors.textPrimary
                             )
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -2034,7 +1919,7 @@ fun WorkoutDatePickerDialog(
                                     Icon(
                                         imageVector = Icons.Default.ChevronLeft,
                                         contentDescription = "Previous Month",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        tint = GetFitTheme.colors.textSecondary,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -2042,7 +1927,7 @@ fun WorkoutDatePickerDialog(
                                     text = monthTitle,
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = GetFitTheme.colors.accent
                                 )
                                 IconButton(
                                     onClick = { monthOffset++ },
@@ -2052,23 +1937,23 @@ fun WorkoutDatePickerDialog(
                                     Icon(
                                         imageVector = Icons.Default.ChevronRight,
                                         contentDescription = "Next Month",
-                                        tint = if (monthOffset < 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f),
+                                        tint = if (monthOffset < 0) GetFitTheme.colors.textSecondary else GetFitTheme.colors.textTertiary,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
                                 if (monthOffset != 0) {
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Spacer(modifier = Modifier.width(Dimens.xs))
                                     Surface(
-                                        shape = RoundedCornerShape(4.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant,
-                                        modifier = Modifier.clickable { monthOffset = 0 }
+                                        shape = RoundedCornerShape(Dimens.xs),
+                                        color = GetFitTheme.colors.surface2,
+                                        modifier = Modifier.pressable(onClick = { monthOffset = 0 })
                                     ) {
                                         Text(
                                             text = "Today",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                            color = GetFitTheme.colors.textSecondary,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                         )
                                     }
                                 }
@@ -2079,7 +1964,7 @@ fun WorkoutDatePickerDialog(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = GetFitTheme.colors.textSecondary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -2101,7 +1986,7 @@ fun WorkoutDatePickerDialog(
                                 text = label,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                color = GetFitTheme.colors.textTertiary
                             )
                         }
                     }
@@ -2110,7 +1995,7 @@ fun WorkoutDatePickerDialog(
                 // Fixed 6-week grid ensuring constant size across all months
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(Dimens.xs)
                 ) {
                     for (row in 0 until 6) {
                         Row(
@@ -2135,22 +2020,22 @@ fun WorkoutDatePickerDialog(
                                             .weight(1f)
                                             .aspectRatio(1f)
                                             .padding(2.dp)
-                                            .clip(RoundedCornerShape(8.dp))
+                                            .clip(RoundedCornerShape(Dimens.sm))
                                             .background(
                                                 when {
-                                                    isSelected -> MaterialTheme.colorScheme.primary
-                                                    isToday -> MaterialTheme.colorScheme.surfaceVariant
+                                                    isSelected -> GetFitTheme.colors.accent
+                                                    isToday -> GetFitTheme.colors.surface2
                                                     else -> Color.Transparent
                                                 }
                                             )
                                             .border(
                                                 width = if (isSelected) 1.dp else if (isToday) 0.8.dp else 0.dp,
-                                                color = if (isSelected) MaterialTheme.colorScheme.primary else if (isToday) MaterialTheme.colorScheme.outline else Color.Transparent,
-                                                shape = RoundedCornerShape(8.dp)
+                                                color = if (isSelected) GetFitTheme.colors.accent else if (isToday) GetFitTheme.colors.hairline else Color.Transparent,
+                                                shape = RoundedCornerShape(Dimens.sm)
                                             )
-                                            .clickable(enabled = !isFuture) {
+                                            .pressable(enabled = !isFuture, onClick = {
                                                 onDateSelected(dateStr)
-                                            },
+                                            }),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Column(
@@ -2162,10 +2047,10 @@ fun WorkoutDatePickerDialog(
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
                                                 color = when {
-                                                    isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
-                                                    isSelected -> MaterialTheme.colorScheme.onPrimary
-                                                    isToday -> MaterialTheme.colorScheme.primary
-                                                    else -> MaterialTheme.colorScheme.onSurface
+                                                    isFuture -> GetFitTheme.colors.textTertiary
+                                                    isSelected -> GetFitTheme.colors.onAccent
+                                                    isToday -> GetFitTheme.colors.accent
+                                                    else -> GetFitTheme.colors.textPrimary
                                                 }
                                             )
                                             if (isLogged) {
@@ -2174,7 +2059,7 @@ fun WorkoutDatePickerDialog(
                                                     modifier = Modifier
                                                         .size(4.dp)
                                                         .clip(CircleShape)
-                                                        .background(if (isSelected) MaterialTheme.colorScheme.onPrimary else GetFitTheme.colors.success)
+                                                        .background(if (isSelected) GetFitTheme.colors.onAccent else GetFitTheme.colors.success)
                                                 )
                                             }
                                         }
@@ -2201,7 +2086,7 @@ fun WorkoutDatePickerDialog(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
                     ) {
                         Box(
                             modifier = Modifier
@@ -2212,17 +2097,15 @@ fun WorkoutDatePickerDialog(
                         Text(
                             text = "Workout Logged",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = GetFitTheme.colors.textSecondary
                         )
                     }
 
                     if (selectedDate != todayStr) {
-                        TextButton(
-                            onClick = { onDateSelected(todayStr) },
-                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text("Jump to Today", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                        }
+                        GfTextButton(
+                            text = "Jump to Today",
+                            onClick = { onDateSelected(todayStr) }
+                        )
                     }
                 }
             }

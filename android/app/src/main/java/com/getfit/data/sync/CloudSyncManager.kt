@@ -5,6 +5,7 @@ import android.util.Log
 import com.getfit.data.remote.AuthService
 import com.getfit.data.repository.GetFitRepository
 import com.getfit.ui.util.AuthPreferences
+import com.getfit.ui.util.OnboardingPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -71,7 +72,20 @@ object CloudSyncManager {
     }
 
     /**
-     * Restores user's cloud backup into the local Room database upon sign-in.
+     * Clears all local user-scoped Room data and preferences so Guest and Logged-In
+     * sessions stay completely independent and never merge.
+     */
+    suspend fun clearLocalUserData(context: Context, repository: GetFitRepository) = withContext(Dispatchers.IO) {
+        repository.clearUserScopedData()
+        context.getSharedPreferences("custom_routine_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+        context.getSharedPreferences("getfit_streak_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+        context.getSharedPreferences("getfit_avatar_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+        OnboardingPreferences.setOnboardingCompleted(context, false)
+    }
+
+    /**
+     * Restores user's cloud backup into a clean local Room database upon sign-in.
+     * Never merges local guest data into a signed-in account.
      */
     suspend fun downloadAndRestore(context: Context, repository: GetFitRepository): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         val token = AuthPreferences.getToken(context)
@@ -80,18 +94,16 @@ object CloudSyncManager {
         }
 
         try {
+            // Wipe any prior guest or previous-account data before loading this account
+            clearLocalUserData(context, repository)
+
             val result = AuthService.downloadSync(token)
             result.fold(
                 onSuccess = { syncResult ->
                     val cloudJson = syncResult.backupJson
                     if (cloudJson.isNullOrBlank()) {
-                        // Brand new account or no cloud data yet: upload local data to initialise account!
-                        val localJson = repository.exportBackupJson()
-                        val uploadRes = AuthService.uploadSync(token, localJson)
-                        uploadRes.onSuccess { AuthPreferences.setLastSyncedTime(context, it) }
-                        Pair(true, "Cloud account linked! Initial local data backed up.")
+                        Pair(true, "Cloud account linked! Ready for your setup.")
                     } else {
-                        // Cloud data exists: import into Room
                         val summary = repository.importBackupJson(cloudJson)
                         if (syncResult.updatedAt != null) {
                             AuthPreferences.setLastSyncedTime(context, syncResult.updatedAt)

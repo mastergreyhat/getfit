@@ -2,11 +2,14 @@ package com.getfit.ui.components.core
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -19,17 +22,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.getfit.ui.theme.Dimens
 import com.getfit.ui.theme.GetFitTheme
+import kotlinx.coroutines.launch
 
 /**
  * Filter Chip: Selected shows accent text on surface3 (or subtle accent fill),
@@ -84,7 +92,10 @@ fun GfChip(
                 text = text,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                color = textColor
+                color = textColor,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -205,6 +216,7 @@ fun <T> GfChipFlow(
  * Supports [isError] state (danger-colored border & supportingText), [suffix], [enabled],
  * [readOnly], and [imeAction].
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun GfTextField(
     value: String,
@@ -218,17 +230,38 @@ fun GfTextField(
     enabled: Boolean = true,
     readOnly: Boolean = false,
     maxLines: Int = 1,
-    imeAction: ImeAction = ImeAction.Default,
+    imeAction: ImeAction = ImeAction.Done,
     leadingIcon: ImageVector? = null,
     trailingIcon: (@Composable () -> Unit)? = null,
     singleLine: Boolean = maxLines == 1,
     keyboardOptions: KeyboardOptions = KeyboardOptions(imeAction = imeAction),
-    keyboardActions: KeyboardActions = KeyboardActions.Default,
+    keyboardActions: KeyboardActions? = null,
     visualTransformation: VisualTransformation = VisualTransformation.None
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val coroutineScope = rememberCoroutineScope()
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+    val resolvedKeyboardActions = keyboardActions ?: KeyboardActions(
+        onDone = {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+        },
+        onSearch = {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+        },
+        onNext = {
+            focusManager.moveFocus(FocusDirection.Down)
+        }
+    )
+
+    Column(
+        modifier = modifier.bringIntoViewRequester(bringIntoViewRequester),
+        verticalArrangement = Arrangement.spacedBy(Dimens.xs)
+    ) {
         if (!label.isNullOrBlank()) {
             GfOverline(text = label)
         }
@@ -278,7 +311,14 @@ fun GfTextField(
                     onValueChange = onValueChange,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .onFocusChanged { isFocused = it.isFocused },
+                        .onFocusChanged { focusState ->
+                            isFocused = focusState.isFocused
+                            if (focusState.isFocused) {
+                                coroutineScope.launch {
+                                    bringIntoViewRequester.bringIntoView()
+                                }
+                            }
+                        },
                     enabled = enabled,
                     readOnly = readOnly,
                     maxLines = maxLines,
@@ -288,7 +328,7 @@ fun GfTextField(
                     ),
                     cursorBrush = SolidColor(if (isError) GetFitTheme.colors.danger else GetFitTheme.colors.accent),
                     keyboardOptions = keyboardOptions,
-                    keyboardActions = keyboardActions,
+                    keyboardActions = resolvedKeyboardActions,
                     visualTransformation = visualTransformation
                 )
             }

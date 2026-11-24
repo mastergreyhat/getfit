@@ -4,11 +4,9 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,22 +24,28 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.getfit.R
 import com.getfit.data.remote.AuthService
 import com.getfit.notification.NotificationHelper
-import com.getfit.ui.components.CleanProgressSpinner
+import com.getfit.ui.components.core.GfBrandLogo
+import com.getfit.ui.components.core.GfCard
+import com.getfit.ui.components.core.GfPrimaryButton
+import com.getfit.ui.components.core.GfSegmentedControl
+import com.getfit.ui.components.core.GfTextButton
+import com.getfit.ui.components.core.GfTextField
+import com.getfit.ui.theme.Dimens
+import com.getfit.ui.theme.GetFitTheme
 import com.getfit.ui.viewmodel.ProfileViewModel
 import kotlinx.coroutines.delay
 
@@ -92,16 +96,19 @@ fun AuthScreen(
         }
     }
 
-    Scaffold { paddingValues ->
+    Scaffold(
+        containerColor = GetFitTheme.colors.background
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(MaterialTheme.colorScheme.background)
+                .background(GetFitTheme.colors.background)
+                .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 32.dp),
+                .padding(horizontal = Dimens.screenGutter, vertical = Dimens.xxl),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(Dimens.lg)
         ) {
             if (onNavigateBack != null) {
                 Row(
@@ -112,35 +119,31 @@ fun AuthScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back to Profile",
-                            tint = MaterialTheme.colorScheme.onBackground
+                            tint = GetFitTheme.colors.textPrimary
                         )
                     }
                 }
             } else {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Dimens.lg))
             }
 
             // App Logo
-            Image(
-                painter = painterResource(id = R.drawable.ic_getfit_logo),
-                contentDescription = "GetFit Logo",
-                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onBackground),
-                modifier = Modifier
-                    .height(48.dp)
-                    .padding(vertical = 4.dp),
-                contentScale = ContentScale.Fit
+            GfBrandLogo(
+                iconSize = 36.dp,
+                textStyle = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(vertical = Dimens.xs)
             )
 
             // Header titles
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(Dimens.xs)
             ) {
                 Text(
                     text = if (isSignUpMode) "Create Your Account" else "Welcome Back",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    color = GetFitTheme.colors.textPrimary,
                     textAlign = TextAlign.Center
                 )
                 Text(
@@ -150,83 +153,35 @@ fun AuthScreen(
                         "Log in to restore your workouts, nutrition, and water history."
                     },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                    color = GetFitTheme.colors.textSecondary,
                     textAlign = TextAlign.Center
                 )
             }
 
             // Mode Selector Toggle (Log In / Sign Up)
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(modifier = Modifier.padding(4.dp)) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (!isSignUpMode) MaterialTheme.colorScheme.surface else Color.Transparent,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable {
-                                isSignUpMode = false
-                                errorMessage = null
-                                otpSent = false
-                            }
-                    ) {
-                        Box(
-                            modifier = Modifier.padding(vertical = 10.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Log In",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = if (!isSignUpMode) FontWeight.Bold else FontWeight.Normal,
-                                color = if (!isSignUpMode) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isSignUpMode) MaterialTheme.colorScheme.surface else Color.Transparent,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable {
-                                isSignUpMode = true
-                                errorMessage = null
-                                otpSent = false
-                            }
-                    ) {
-                        Box(
-                            modifier = Modifier.padding(vertical = 10.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Sign Up",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = if (isSignUpMode) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSignUpMode) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+            GfSegmentedControl(
+                items = listOf("Log In", "Sign Up"),
+                selectedIndex = if (isSignUpMode) 1 else 0,
+                onSelect = { index ->
+                    isSignUpMode = index == 1
+                    errorMessage = null
+                    otpSent = false
                 }
-            }
+            )
 
             // Error Banner
             if (!errorMessage.isNullOrBlank()) {
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(Dimens.md),
+                    color = GetFitTheme.colors.danger.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, GetFitTheme.colors.danger.copy(alpha = 0.35f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = errorMessage ?: "",
-                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        color = GetFitTheme.colors.danger,
                         style = MaterialTheme.typography.bodySmall,
-
-                        lineHeight = 16.sp,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                        modifier = Modifier.padding(horizontal = Dimens.md, vertical = Dimens.sm)
                     )
                 }
             }
@@ -236,50 +191,54 @@ fun AuthScreen(
                 // LOG IN FORM
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    verticalArrangement = Arrangement.spacedBy(Dimens.md)
                 ) {
-                    OutlinedTextField(
+                    GfTextField(
                         value = email,
                         onValueChange = { email = it; errorMessage = null },
-                        label = { Text("Email Address") },
-                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
+                        label = "Email Address",
+                        leadingIcon = Icons.Default.Email,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    OutlinedTextField(
+                    GfTextField(
                         value = password,
                         onValueChange = { password = it; errorMessage = null },
-                        label = { Text("Password") },
-                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        label = "Password",
+                        leadingIcon = Icons.Default.Lock,
                         trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            IconButton(
+                                onClick = { passwordVisible = !passwordVisible },
+                                modifier = Modifier.size(24.dp)
+                            ) {
                                 Icon(
-                                    if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = null
+                                    imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                                    tint = GetFitTheme.colors.textSecondary,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                         },
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(Dimens.xs))
 
-                    Button(
+                    GfPrimaryButton(
+                        text = "Log In",
+                        isLoading = uiState.isSyncing,
+                        enabled = !uiState.isSyncing && email.isNotBlank() && password.isNotBlank(),
                         onClick = {
                             if (email.isBlank() || !email.contains("@")) {
                                 errorMessage = "Please enter a valid email address."
-                                return@Button
+                                return@GfPrimaryButton
                             }
                             if (password.isBlank()) {
                                 errorMessage = "Please enter your password."
-                                return@Button
+                                return@GfPrimaryButton
                             }
                             errorMessage = null
                             viewModel.login(email.trim(), password) { success, msg ->
@@ -290,27 +249,8 @@ fun AuthScreen(
                                     errorMessage = msg
                                 }
                             }
-                        },
-                        enabled = !uiState.isSyncing && email.isNotBlank() && password.isNotBlank(),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                    ) {
-                        if (uiState.isSyncing) {
-                            CleanProgressSpinner(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
                         }
-                        Text(
-                            text = if (uiState.isSyncing) "Logging In..." else "Log In",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    )
                 }
             } else {
                 // SIGN UP FORM
@@ -318,69 +258,72 @@ fun AuthScreen(
                     // Step 1: Enter Name, Email, Password
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                        verticalArrangement = Arrangement.spacedBy(Dimens.md)
                     ) {
-                        OutlinedTextField(
+                        GfTextField(
                             value = name,
                             onValueChange = { name = it; errorMessage = null },
-                            label = { Text("Your Name") },
-                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
+                            label = "Your Name",
+                            leadingIcon = Icons.Default.Person,
+                            imeAction = ImeAction.Next,
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        OutlinedTextField(
+                        GfTextField(
                             value = email,
                             onValueChange = { email = it; errorMessage = null },
-                            label = { Text("Email Address") },
-                            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
+                            label = "Email Address",
+                            leadingIcon = Icons.Default.Email,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        OutlinedTextField(
+                        GfTextField(
                             value = password,
                             onValueChange = { password = it; errorMessage = null },
-                            label = { Text("Password (min 6 characters)") },
-                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                            label = "Password (min 6 characters)",
+                            leadingIcon = Icons.Default.Lock,
                             trailingIcon = {
-                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                IconButton(
+                                    onClick = { passwordVisible = !passwordVisible },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
                                     Icon(
-                                        if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                        contentDescription = null
+                                        imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                                        tint = GetFitTheme.colors.textSecondary,
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                             },
                             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(Dimens.xs))
 
-                        Button(
+                        GfPrimaryButton(
+                            text = "Send Verification Code",
+                            isLoading = uiState.isSyncing,
+                            enabled = !uiState.isSyncing && name.isNotBlank() && email.isNotBlank() && password.length >= 6,
                             onClick = {
                                 val trimmedEmail = email.trim()
                                 if (name.isBlank()) {
                                     errorMessage = "Please enter your name."
-                                    return@Button
+                                    return@GfPrimaryButton
                                 }
                                 if (trimmedEmail.isBlank() || !trimmedEmail.contains("@")) {
                                     errorMessage = "Please enter a valid email address."
-                                    return@Button
+                                    return@GfPrimaryButton
                                 }
                                 if (AuthService.isDisposableEmail(trimmedEmail)) {
                                     errorMessage = "Temporary or disposable email addresses are not allowed. Please enter your real email address."
-                                    return@Button
+                                    return@GfPrimaryButton
                                 }
                                 if (password.length < 6) {
                                     errorMessage = "Password must be at least 6 characters long."
-                                    return@Button
+                                    return@GfPrimaryButton
                                 }
 
                                 errorMessage = null
@@ -393,80 +336,61 @@ fun AuthScreen(
                                         errorMessage = msg
                                     }
                                 }
-                            },
-                            enabled = !uiState.isSyncing && name.isNotBlank() && email.isNotBlank() && password.length >= 6,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                        ) {
-                            if (uiState.isSyncing) {
-                                CleanProgressSpinner(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
                             }
-                            Text(
-                                text = if (uiState.isSyncing) "Sending Verification Code..." else "Send Verification Code",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        )
                     }
                 } else {
                     // Step 2: Enter 6-digit OTP code
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                        verticalArrangement = Arrangement.spacedBy(Dimens.md)
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        GfCard(
+                            cornerRadius = Dimens.lg,
+                            contentPadding = PaddingValues(Dimens.lg),
+                            useGradient = false,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(Dimens.xs)) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                                 ) {
                                     Icon(
                                         Icons.Default.MarkEmailRead,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
+                                        tint = GetFitTheme.colors.accent,
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Text(
                                         text = "Verification code sent to:",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = GetFitTheme.colors.textSecondary
                                     )
                                 }
                                 Text(
                                     text = email.trim(),
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = GetFitTheme.colors.textPrimary
                                 )
                                 Text(
                                     text = "Please check your inbox (and spam folder) and enter the 6-digit code below.",
                                     style = MaterialTheme.typography.bodySmall,
-
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                    color = GetFitTheme.colors.textSecondary,
                                     modifier = Modifier.padding(top = 2.dp)
                                 )
                                 Text(
                                     text = if (countdownSeconds > 0) "Code expires in ${countdownSeconds}s" else "Code has expired! Please click 'Resend Code'.",
                                     style = MaterialTheme.typography.bodySmall,
-
                                     fontWeight = FontWeight.SemiBold,
-                                    color = if (countdownSeconds > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                    color = if (countdownSeconds > 0) GetFitTheme.colors.accent else GetFitTheme.colors.danger,
                                     modifier = Modifier.padding(top = 2.dp)
                                 )
                             }
                         }
 
-                        OutlinedTextField(
+                        GfTextField(
                             value = otpCode,
                             onValueChange = {
                                 if (it.length <= 6) {
@@ -474,23 +398,24 @@ fun AuthScreen(
                                     errorMessage = null
                                 }
                             },
-                            label = { Text("6-Digit Verification Code") },
-                            placeholder = { Text("123456") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
+                            label = "6-Digit Verification Code",
+                            placeholder = "123456",
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        Button(
+                        GfPrimaryButton(
+                            text = "Verify & Create Account",
+                            isLoading = uiState.isSyncing,
+                            enabled = !uiState.isSyncing && otpCode.length == 6 && countdownSeconds > 0,
                             onClick = {
                                 if (countdownSeconds <= 0) {
                                     errorMessage = "This verification code has expired. Please tap 'Resend Code'."
-                                    return@Button
+                                    return@GfPrimaryButton
                                 }
                                 if (otpCode.length < 6) {
                                     errorMessage = "Please enter the complete 6-digit verification code."
-                                    return@Button
+                                    return@GfPrimaryButton
                                 }
                                 errorMessage = null
                                 viewModel.register(email.trim(), password, name.trim(), otpCode.trim()) { success, msg ->
@@ -501,34 +426,17 @@ fun AuthScreen(
                                         errorMessage = msg
                                     }
                                 }
-                            },
-                            enabled = !uiState.isSyncing && otpCode.length == 6 && countdownSeconds > 0,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                        ) {
-                            if (uiState.isSyncing) {
-                                CleanProgressSpinner(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
                             }
-                            Text(
-                                text = if (uiState.isSyncing) "Creating Account..." else "Verify & Create Account",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        )
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            TextButton(
+                            GfTextButton(
+                                text = "Change Email",
+                                color = GetFitTheme.colors.textSecondary,
                                 onClick = {
                                     otpSent = false
                                     otpCode = ""
@@ -536,16 +444,20 @@ fun AuthScreen(
                                     countdownSeconds = 60
                                     errorMessage = null
                                 }
-                            ) {
-                                Text("Change Email", style = MaterialTheme.typography.labelMedium)
-                            }
+                            )
 
                             val canResend = !uiState.isSyncing && countdownSeconds == 0 && resendAttempts < 3
-                            TextButton(
+                            GfTextButton(
+                                text = when {
+                                    resendAttempts >= 3 -> "Limit Reached"
+                                    countdownSeconds > 0 -> "Resend in ${countdownSeconds}s"
+                                    else -> "Resend Code (${3 - resendAttempts} left)"
+                                },
+                                enabled = canResend,
                                 onClick = {
                                     if (resendAttempts >= 3) {
                                         errorMessage = "Maximum resend limit reached. Please wait 15 minutes."
-                                        return@TextButton
+                                        return@GfTextButton
                                     }
                                     errorMessage = null
                                     viewModel.sendOtp(email.trim()) { success, msg ->
@@ -557,19 +469,8 @@ fun AuthScreen(
                                             errorMessage = msg
                                         }
                                     }
-                                },
-                                enabled = canResend
-                            ) {
-                                Text(
-                                    text = when {
-                                        resendAttempts >= 3 -> "Limit Reached"
-                                        countdownSeconds > 0 -> "Resend in ${countdownSeconds}s"
-                                        else -> "Resend Code (${3 - resendAttempts} left)"
-                                    },
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
+                                }
+                            )
                         }
                     }
                 }
@@ -579,27 +480,29 @@ fun AuthScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 4.dp),
+                        .padding(top = Dimens.xs),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Divider(
                         modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                        color = GetFitTheme.colors.hairline
                     )
                     Text(
                         text = "OR",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        color = GetFitTheme.colors.textTertiary,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 12.dp)
+                        modifier = Modifier.padding(horizontal = Dimens.md)
                     )
                     Divider(
                         modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                        color = GetFitTheme.colors.hairline
                     )
                 }
 
-                TextButton(
+                GfTextButton(
+                    text = if (onNavigateBack != null) "Back to Profile" else "Continue without signing in",
+                    color = GetFitTheme.colors.textSecondary,
                     onClick = {
                         promptNotificationOnceIfNeeded()
                         if (onNavigateBack != null) {
@@ -609,17 +512,10 @@ fun AuthScreen(
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = if (onNavigateBack != null) "Back to Profile" else "Continue without signing in",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(Dimens.lg))
         }
     }
 }

@@ -464,10 +464,16 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
     fun logout(onResult: () -> Unit) {
         val app = getApplication<Application>()
-        AuthPreferences.clearSession(app)
-        OnboardingPreferences.setOnboardingCompleted(app, false)
-        refreshAuthState()
-        onResult()
+        viewModelScope.launch {
+            CloudSyncManager.clearLocalUserData(app, repository)
+            AuthPreferences.clearSession(app)
+            OnboardingPreferences.setOnboardingCompleted(app, false)
+            refreshAuthState()
+            loadProfile()
+            loadTrash()
+            loadMealSchedules()
+            onResult()
+        }
     }
 
     fun syncNow(onResult: (Boolean, String) -> Unit) {

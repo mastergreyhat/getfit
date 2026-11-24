@@ -4,15 +4,20 @@ import com.getfit.ui.theme.GetFitTheme
 import com.getfit.ui.theme.Dimens
 import com.getfit.ui.components.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,12 +27,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.draw.alpha
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat
@@ -43,8 +54,11 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
@@ -59,15 +73,14 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import com.getfit.data.DietPlan
-import com.getfit.data.MealPlanSuggestions
-import com.getfit.data.MealSuggestion
 import com.getfit.data.entity.FoodItem
 import com.getfit.data.entity.FoodLog
+import com.getfit.data.remote.GeminiNutritionService
 import com.getfit.ui.components.FoodItemCard
 import com.getfit.ui.components.ModifyPastDateDialog
 import com.getfit.ui.theme.WaterBlue
 import com.getfit.ui.util.AppDateManager
+import com.getfit.ui.util.AuthPreferences
 import com.getfit.ui.viewmodel.FoodUiState
 import com.getfit.ui.viewmodel.FoodViewModel
 import com.getfit.ui.viewmodel.YesterdayMealSummary
@@ -76,7 +89,8 @@ import com.getfit.ui.viewmodel.YesterdayMealSummary
 @Composable
 fun FoodScreen(
     viewModel: FoodViewModel,
-    onNavigateToAddCustomFood: () -> Unit
+    onNavigateToAddCustomFood: () -> Unit,
+    onNavigateToAuth: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedTab by viewModel.currentTab.collectAsState()
@@ -88,6 +102,7 @@ fun FoodScreen(
     var quickAddDefaultMeal by remember { mutableStateOf("Lunch") }
     var showDatePickerDialog by remember { mutableStateOf(false) }
     var showCopyYesterdayDialog by remember { mutableStateOf(false) }
+    var showWaterTargetDialog by remember { mutableStateOf(false) }
     var yesterdayMealSummaries by remember { mutableStateOf<List<YesterdayMealSummary>>(emptyList()) }
 
     var snackbarHostState = remember { SnackbarHostState() }
@@ -121,6 +136,19 @@ fun FoodScreen(
                 pendingPastAction = null
                 showPastDateConfirmDialog = false
                 viewModel.goToToday()
+            }
+        )
+    }
+
+    if (showWaterTargetDialog) {
+        EditWaterTargetDialog(
+            currentTarget = uiState.userProfile.dailyWaterTarget.coerceAtLeast(500),
+            onDismiss = { showWaterTargetDialog = false },
+            onConfirm = { newTarget ->
+                viewModel.updateWaterTarget(newTarget)
+                showWaterTargetDialog = false
+                snackbarMessage = "Daily hydration target updated to $newTarget ml"
+                showSnackbar = true
             }
         )
     }
@@ -190,11 +218,6 @@ fun FoodScreen(
                     }
                 ) {
                     Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { foodToDelete = null }) {
-                    Text("Cancel")
                 }
             }
         )
@@ -288,7 +311,8 @@ fun FoodScreen(
                     onClick = onNavigateToAddCustomFood,
                     containerColor = GetFitTheme.colors.accent,
                     contentColor = GetFitTheme.colors.onAccent,
-                    shape = CircleShape
+                    shape = CircleShape,
+                    modifier = Modifier.gfBottomBarPadding()
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Custom Food")
                 }
@@ -347,7 +371,10 @@ fun FoodScreen(
                             snackbarMessage = if (delta > 0) "Logged +${delta}ml water" else "Updated water intake"
                             showSnackbar = true
                         }
-                    }
+                    },
+                    onEditWaterTarget = { showWaterTargetDialog = true },
+                    diaryScrollTarget = viewModel.diaryScrollTarget.collectAsState().value,
+                    onConsumeDiaryScrollTarget = viewModel::consumeDiaryScrollTarget
                 )
                 1 -> LogFoodTabContent(
                     uiState = uiState,
@@ -362,15 +389,23 @@ fun FoodScreen(
                 )
                 2 -> MealPlanTabContent(
                     uiState = uiState,
-                    selectedIndex = uiState.selectedDietPlanIndex,
-                    onSelectPlanIndex = viewModel::setDietPlanIndex,
-                    onLogMealToDiary = { mealSuggestion, targetMealType ->
+                    onPantryInputChange = viewModel::onPantryInputChange,
+                    onGenerateMealPlan = viewModel::generateAiMealPlan,
+                    onLogGeneratedMeal = { meal ->
                         checkPastDateAndRun {
-                            viewModel.logMealSuggestion(mealSuggestion, targetMealType)
-                            snackbarMessage = "Logged ${mealSuggestion.mealType} to diary"
+                            viewModel.logGeneratedMeal(meal)
+                            snackbarMessage = "Logged ${meal.mealType} to diary"
                             showSnackbar = true
                         }
-                    }
+                    },
+                    onLogAllGeneratedMeals = { meals ->
+                        checkPastDateAndRun {
+                            viewModel.logAllGeneratedMeals(meals)
+                            snackbarMessage = "Logged all ${meals.size} meals to diary"
+                            showSnackbar = true
+                        }
+                    },
+                    onNavigateToAuth = onNavigateToAuth
                 )
             }
         }
@@ -390,6 +425,7 @@ fun normalizeMealType(rawType: String?): String {
 /**
  * Tab 0: Daily Food Diary (CRED / Apple TV style)
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MyFitnessPalDiaryTabContent(
     uiState: FoodUiState,
@@ -401,8 +437,25 @@ private fun MyFitnessPalDiaryTabContent(
     onCopyYesterdayMeals: () -> Unit,
     onAddFoodClick: (mealType: String) -> Unit,
     onQuickAddClick: (mealType: String) -> Unit,
-    onLogWater: (Int) -> Unit
+    onLogWater: (Int) -> Unit,
+    onEditWaterTarget: () -> Unit,
+    diaryScrollTarget: Int? = null,
+    onConsumeDiaryScrollTarget: () -> Unit = {}
 ) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(diaryScrollTarget) {
+        when (diaryScrollTarget) {
+            0 -> {
+                listState.scrollToItem(0)
+                onConsumeDiaryScrollTarget()
+            }
+            1 -> {
+                val lastIdx = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+                listState.animateScrollToItem(lastIdx)
+                onConsumeDiaryScrollTarget()
+            }
+        }
+    }
     val calorieTarget = uiState.userProfile.dailyCalorieTarget.toDouble().coerceAtLeast(1000.0)
     val caloriesConsumed = uiState.totalCalories
     val isOverGoal = caloriesConsumed > calorieTarget
@@ -417,14 +470,14 @@ private fun MyFitnessPalDiaryTabContent(
     }
 
     LazyColumn(
+        state = listState,
         modifier = Modifier
-            .fillMaxSize()
-            .gfBottomBarPadding(),
+            .fillMaxSize(),
         contentPadding = PaddingValues(
             start = Dimens.screenGutter,
             end = Dimens.screenGutter,
             top = Dimens.xs,
-            bottom = Dimens.xl
+            bottom = com.getfit.ui.components.core.gfBottomBarContentPadding() + Dimens.xl
         ),
         verticalArrangement = Arrangement.spacedBy(Dimens.xxl)
     ) {
@@ -822,31 +875,7 @@ private fun MyFitnessPalDiaryTabContent(
                     }
 
                     if (groupedWorkouts.isNotEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .background(GetFitTheme.colors.success.copy(alpha = 0.15f))
-                                .border(1.dp, GetFitTheme.colors.success.copy(alpha = 0.35f), CircleShape)
-                                .padding(horizontal = Dimens.sm, vertical = Dimens.xs)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    tint = GetFitTheme.colors.success,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Text(
-                                    text = "Trained",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = GetFitTheme.colors.success
-                                )
-                            }
-                        }
+                        GfStatusPill(text = "Trained")
                     }
                 }
 
@@ -878,12 +907,7 @@ private fun MyFitnessPalDiaryTabContent(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = "Completed",
-                                        tint = GetFitTheme.colors.success,
-                                        modifier = Modifier.size(15.dp)
-                                    )
+                                    GfCheckBadge(checked = true, size = 18.dp)
                                     Text(
                                         text = exName,
                                         style = MaterialTheme.typography.titleMedium,
@@ -908,79 +932,49 @@ private fun MyFitnessPalDiaryTabContent(
                                 )
                             }
 
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(Dimens.xs))
-                                    .background(GetFitTheme.colors.success.copy(alpha = 0.12f))
-                                    .padding(horizontal = Dimens.sm, vertical = Dimens.xs)
-                            ) {
-                                Text(
-                                    text = "${sets.size} sets ✓",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = GetFitTheme.colors.success
-                                )
-                            }
+                            GfStatusPill(text = "${sets.size} sets")
                         }
                     }
                 }
             }
         }
 
-        // 6. Water Intake Card (Clean SaaS style directly after Snacks & Training)
+        // 6. Daily Hydration Card (matches Home screen style + quick-modify buttons; press & hold to set target)
         item(key = "diary_water_intake") {
-            val waterTarget = uiState.userProfile.dailyWaterTarget.coerceAtLeast(1000)
+            val waterTarget = uiState.userProfile.dailyWaterTarget.coerceAtLeast(500)
             val currentWater = uiState.todayWaterMl
-            val waterPct = ((currentWater.toFloat() / waterTarget.toFloat()) * 100).toInt().coerceAtMost(100)
             val progressFraction = (currentWater.toFloat() / waterTarget.toFloat()).coerceIn(0f, 1f)
+            val haptic = LocalHapticFeedback.current
 
-            GfCard(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.WaterDrop,
-                            contentDescription = null,
-                            tint = WaterBlue,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Column {
-                            GfOverline(text = "WATER INTAKE")
-                            Text(
-                                text = "$currentWater / $waterTarget ml ($waterPct%)",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = GetFitTheme.colors.textPrimary
-                            )
+            GfCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .combinedClickable(
+                        onClick = {},
+                        onLongClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onEditWaterTarget()
                         }
-                    }
-                    Box(
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .background(WaterBlue.copy(alpha = 0.12f))
-                            .border(1.dp, WaterBlue.copy(alpha = 0.3f), CircleShape)
-                            .padding(horizontal = Dimens.md, vertical = Dimens.xs)
-                    ) {
-                        Text(
-                            text = "Goal: ${waterTarget}ml",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = WaterBlue
-                        )
-                    }
-                }
+                    )
+            ) {
+                GfOverline(text = "Daily Hydration")
+                Spacer(modifier = Modifier.height(Dimens.xs))
+                GfBigNumber(
+                    value = currentWater,
+                    unit = "ml",
+                    style = MaterialTheme.typography.displaySmall
+                )
+                Text(
+                    text = "Target: $waterTarget ml • Hold to edit",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GetFitTheme.colors.textSecondary
+                )
 
                 Spacer(modifier = Modifier.height(Dimens.md))
 
                 GfProgressBar(
                     progress = progressFraction,
-                    color = WaterBlue
+                    color = GetFitTheme.colors.water
                 )
 
                 Spacer(modifier = Modifier.height(Dimens.md))
@@ -989,7 +983,7 @@ private fun MyFitnessPalDiaryTabContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                 ) {
-                    val waterActions = listOf(250 to "+250 ml", 500 to "+500 ml", 1000 to "+1000 ml", -250 to "-250")
+                    val waterActions = listOf(250 to "+250", 500 to "+500", 1000 to "+1 L", -250 to "-250")
                     waterActions.forEach { (delta, label) ->
                         GfChip(
                             text = label,
@@ -1193,10 +1187,9 @@ private fun LogFoodTabContent(
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-                .gfBottomBarPadding(),
+                .weight(1f),
             verticalArrangement = Arrangement.spacedBy(Dimens.sm),
-            contentPadding = PaddingValues(bottom = Dimens.lg)
+            contentPadding = PaddingValues(bottom = com.getfit.ui.components.core.gfBottomBarContentPadding() + Dimens.lg)
         ) {
             if (uiState.onlineSearchResults.isNotEmpty()) {
                 item(key = "header_online_results") {
@@ -1304,150 +1297,458 @@ private fun LogFoodTabContent(
     }
 }
 
+private fun isGeneratedMealLogged(
+    meal: GeminiNutritionService.GeneratedMeal,
+    logs: List<FoodLog>
+): Boolean {
+    val expectedName = "${meal.title}: ${meal.items.joinToString(", ")}"
+    return logs.any { it.foodName == expectedName }
+}
+
 /**
- * Tab 2: Curated & Personalized Meal Plans
+ * Tab 2: AI Pantry-to-Meal-Plan Generator (Logged-in users only)
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MealPlanTabContent(
     uiState: FoodUiState,
-    selectedIndex: Int,
-    onSelectPlanIndex: (Int) -> Unit,
-    onLogMealToDiary: (MealSuggestion, String) -> Unit
+    onPantryInputChange: (String) -> Unit,
+    onGenerateMealPlan: () -> Unit,
+    onLogGeneratedMeal: (GeminiNutritionService.GeneratedMeal) -> Unit,
+    onLogAllGeneratedMeals: (List<GeminiNutritionService.GeneratedMeal>) -> Unit,
+    onNavigateToAuth: () -> Unit
 ) {
-    val plans = MealPlanSuggestions.getAllPlans(uiState.userProfile)
-    val currentPlan = if (selectedIndex in plans.indices) plans[selectedIndex] else plans[0]
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val isLoggedIn = remember(uiState.userProfile) { AuthPreferences.isLoggedIn(context) }
+    var duplicateMealToConfirm by remember { mutableStateOf<GeminiNutritionService.GeneratedMeal?>(null) }
+    var pendingBulkLogMeals by remember { mutableStateOf<List<GeminiNutritionService.GeneratedMeal>?>(null) }
+    var expandedHistoryId by remember { mutableStateOf<String?>(null) }
+    val historyDateFormat = remember { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()) }
+
+    duplicateMealToConfirm?.let { meal ->
+        AlertDialog(
+            onDismissRequest = { duplicateMealToConfirm = null },
+            containerColor = GetFitTheme.colors.surface1,
+            titleContentColor = GetFitTheme.colors.textPrimary,
+            textContentColor = GetFitTheme.colors.textSecondary,
+            title = { Text("Already in Diary", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("${meal.title} (${meal.mealType}) is already added for ${uiState.dateDisplayLabel}. Do you wish to continue?")
+            },
+            confirmButton = {
+                GfTextButton(
+                    text = "Continue",
+                    onClick = {
+                        duplicateMealToConfirm = null
+                        onLogGeneratedMeal(meal)
+                    },
+                    color = GetFitTheme.colors.accent
+                )
+            },
+            dismissButton = {
+                GfTextButton(
+                    text = "Cancel",
+                    onClick = { duplicateMealToConfirm = null },
+                    color = GetFitTheme.colors.textSecondary
+                )
+            }
+        )
+    }
+
+    pendingBulkLogMeals?.let { mealsToLog ->
+        AlertDialog(
+            onDismissRequest = { pendingBulkLogMeals = null },
+            containerColor = GetFitTheme.colors.surface1,
+            titleContentColor = GetFitTheme.colors.textPrimary,
+            textContentColor = GetFitTheme.colors.textSecondary,
+            title = { Text("Already in Diary", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("Some or all meals from this plan are already added for ${uiState.dateDisplayLabel}. Do you wish to continue?")
+            },
+            confirmButton = {
+                GfTextButton(
+                    text = "Continue",
+                    onClick = {
+                        pendingBulkLogMeals = null
+                        onLogAllGeneratedMeals(mealsToLog)
+                    },
+                    color = GetFitTheme.colors.accent
+                )
+            },
+            dismissButton = {
+                GfTextButton(
+                    text = "Cancel",
+                    onClick = { pendingBulkLogMeals = null },
+                    color = GetFitTheme.colors.textSecondary
+                )
+            }
+        )
+    }
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .gfBottomBarPadding(),
+        modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             start = Dimens.screenGutter,
             end = Dimens.screenGutter,
             top = Dimens.sm,
-            bottom = Dimens.xl
+            bottom = com.getfit.ui.components.core.gfBottomBarContentPadding() + Dimens.xl
         ),
         verticalArrangement = Arrangement.spacedBy(Dimens.xxl)
     ) {
-        // Plan selector chips with GfChipRow
-        item(key = "meal_plans_selector") {
-            GfChipRow(
-                items = plans,
-                selectedItem = currentPlan,
-                onItemSelected = { plan -> onSelectPlanIndex(plans.indexOf(plan)) },
-                label = { "${it.name} (${it.totalCalories} kcal)" },
-                contentPadding = PaddingValues(0.dp)
-            )
-        }
-
-        // Active Plan Overview Card
-        item {
-            GfCard(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = currentPlan.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = GetFitTheme.colors.textPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    Spacer(modifier = Modifier.width(Dimens.sm))
-                    Box(
+        if (!isLoggedIn) {
+            item(key = "meal_plan_locked") {
+                GfCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(
                         modifier = Modifier
-                            .clip(CircleShape)
-                            .background(GetFitTheme.colors.surface2)
-                            .border(1.dp, GetFitTheme.colors.hairline, CircleShape)
-                            .padding(horizontal = Dimens.md, vertical = Dimens.xs)
+                            .fillMaxWidth()
+                            .padding(vertical = Dimens.md),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Dimens.md)
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(GetFitTheme.colors.accent.copy(alpha = 0.14f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = GetFitTheme.colors.accent,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                         Text(
-                            text = "${currentPlan.totalCalories} kcal • ${currentPlan.totalProtein}g P",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
+                            text = "AI Meal Planner",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = GetFitTheme.colors.textPrimary
+                        )
+                        Text(
+                            text = "Sign in to enter ingredients you have at home and let Gemini build a daily meal plan matching your calorie target.",
+                            style = MaterialTheme.typography.bodyMedium,
                             color = GetFitTheme.colors.textSecondary,
-                            maxLines = 1,
-                            softWrap = false
+                            textAlign = TextAlign.Center
+                        )
+                        GfPrimaryButton(
+                            text = "Sign In to Unlock",
+                            onClick = onNavigateToAuth,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
+            }
+        } else {
+            item(key = "pantry_input_card") {
+                GfCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            GfOverline(text = "WHAT'S IN YOUR KITCHEN?")
+                            Box(
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(GetFitTheme.colors.surface3)
+                                    .border(1.dp, GetFitTheme.colors.hairline, CircleShape)
+                                    .padding(horizontal = Dimens.md, vertical = Dimens.xs)
+                            ) {
+                                Text(
+                                    text = "${uiState.userProfile.goal.ifBlank { "Goal" }} · ${uiState.userProfile.dailyCalorieTarget} kcal",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = GetFitTheme.colors.textSecondary,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
 
-                Spacer(modifier = Modifier.height(Dimens.xs))
+                        GfTextField(
+                            value = uiState.pantryInput,
+                            onValueChange = onPantryInputChange,
+                            label = "Available Ingredients",
+                            placeholder = "e.g. eggs, oats, rice, chicken breast, paneer, curd, banana...",
+                            maxLines = 4,
+                            singleLine = false,
+                            imeAction = ImeAction.Done,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        if (!uiState.mealPlanError.isNullOrBlank()) {
+                            Text(
+                                text = uiState.mealPlanError,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GetFitTheme.colors.danger
+                            )
+                        }
+
+                        GfSecondaryButton(
+                            text = "Generate Meal Plan",
+                            icon = Icons.Default.AutoAwesome,
+                            isLoading = uiState.isGeneratingMealPlan,
+                            enabled = uiState.pantryInput.isNotBlank() && !uiState.isGeneratingMealPlan,
+                            onClick = onGenerateMealPlan,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+
+            val plan = uiState.generatedMealPlan
+            if (plan != null) {
+                item(key = "ai_plan_overview") {
+                    GfCard(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Your AI Daily Plan",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = GetFitTheme.colors.textPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            Spacer(modifier = Modifier.width(Dimens.sm))
+                            Box(
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(GetFitTheme.colors.surface2)
+                                    .border(1.dp, GetFitTheme.colors.hairline, CircleShape)
+                                    .padding(horizontal = Dimens.md, vertical = Dimens.xs)
+                            ) {
+                                Text(
+                                    text = "${plan.totalCalories} kcal • ${plan.totalProtein}g P",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = GetFitTheme.colors.accent,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(Dimens.xs))
+                        Text(
+                            text = plan.summary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = GetFitTheme.colors.textSecondary
+                        )
+                        if (plan.meals.isNotEmpty()) {
+                            val allMealsLogged = plan.meals.all { isGeneratedMealLogged(it, uiState.todayLogs) }
+                            val anyMealLogged = plan.meals.any { isGeneratedMealLogged(it, uiState.todayLogs) }
+                            Spacer(modifier = Modifier.height(Dimens.md))
+                            GfPrimaryButton(
+                                text = if (allMealsLogged) "All Meals Logged" else "Log Entire Plan to Diary",
+                                icon = if (allMealsLogged) Icons.Rounded.Check else Icons.Rounded.Add,
+                                onClick = {
+                                    if (anyMealLogged) {
+                                        pendingBulkLogMeals = plan.meals
+                                    } else {
+                                        onLogAllGeneratedMeals(plan.meals)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+
+                itemsIndexed(plan.meals, key = { idx, meal -> "ai_meal_${meal.mealType}_$idx" }) { _, meal ->
+                    val isLogged = isGeneratedMealLogged(meal, uiState.todayLogs)
+                    GeneratedMealCard(
+                        meal = meal,
+                        isLogged = isLogged,
+                        onLogClick = {
+                            if (isLogged) duplicateMealToConfirm = meal else onLogGeneratedMeal(meal)
+                        }
+                    )
+                }
+            }
+
+            if (uiState.mealPlanHistory.isNotEmpty()) {
+                item(key = "ai_plan_history_header") {
+                    GfOverline(
+                        text = "PREVIOUSLY GENERATED PLANS",
+                        modifier = Modifier.padding(top = Dimens.sm)
+                    )
+                }
+
+                items(uiState.mealPlanHistory, key = { "history_${it.id}" }) { entry ->
+                    val isExpanded = expandedHistoryId == entry.id
+                    val dateLabel = remember(entry.timestampMs) {
+                        historyDateFormat.format(Date(entry.timestampMs))
+                    }
+                    val allMealsLogged = entry.plan.meals.isNotEmpty() &&
+                        entry.plan.meals.all { isGeneratedMealLogged(it, uiState.todayLogs) }
+                    val anyMealLogged = entry.plan.meals.any { isGeneratedMealLogged(it, uiState.todayLogs) }
+
+                    GfCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            expandedHistoryId = if (isExpanded) null else entry.id
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = Dimens.sm)
+                            ) {
+                                Text(
+                                    text = "$dateLabel • ${entry.goal}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = GetFitTheme.colors.accent,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = entry.pantryItems,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = GetFitTheme.colors.textPrimary,
+                                    maxLines = if (isExpanded) 3 else 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${entry.plan.totalCalories} kcal • ${entry.plan.totalProtein}g P • ${entry.plan.totalCarbs}g C • ${entry.plan.totalFat}g F",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = GetFitTheme.colors.textSecondary
+                                )
+                            }
+                            Icon(
+                                imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = if (isExpanded) "Collapse plan" else "Expand plan",
+                                tint = GetFitTheme.colors.textSecondary
+                            )
+                        }
+
+                        if (isExpanded) {
+                            Spacer(modifier = Modifier.height(Dimens.md))
+                            Text(
+                                text = entry.plan.summary,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = GetFitTheme.colors.textSecondary
+                            )
+                            if (entry.plan.meals.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(Dimens.md))
+                                GfPrimaryButton(
+                                    text = if (allMealsLogged) "All Meals Logged" else "Log Entire Plan to Diary",
+                                    icon = if (allMealsLogged) Icons.Rounded.Check else Icons.Rounded.Add,
+                                    onClick = {
+                                        if (anyMealLogged) {
+                                            pendingBulkLogMeals = entry.plan.meals
+                                        } else {
+                                            onLogAllGeneratedMeals(entry.plan.meals)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(Dimens.md))
+                                Column(verticalArrangement = Arrangement.spacedBy(Dimens.sm)) {
+                                    entry.plan.meals.forEach { meal ->
+                                        val isLogged = isGeneratedMealLogged(meal, uiState.todayLogs)
+                                        GeneratedMealCard(
+                                            meal = meal,
+                                            isLogged = isLogged,
+                                            onLogClick = {
+                                                if (isLogged) duplicateMealToConfirm = meal else onLogGeneratedMeal(meal)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GeneratedMealCard(
+    meal: GeminiNutritionService.GeneratedMeal,
+    isLogged: Boolean,
+    onLogClick: () -> Unit
+) {
+    GfCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = Dimens.sm)
+            ) {
+                GfOverline(text = meal.mealType.uppercase())
                 Text(
-                    text = currentPlan.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = GetFitTheme.colors.textSecondary
+                    text = meal.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = GetFitTheme.colors.textPrimary,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (isLogged) {
+                GfStatusPill(text = "Logged")
+            } else {
+                GfSecondaryButton(
+                    text = "Log to Diary",
+                    onClick = onLogClick,
+                    icon = Icons.Rounded.Add,
+                    compact = true
                 )
             }
         }
 
-        // Plan Meals List
-        itemsIndexed(currentPlan.meals, key = { idx, meal -> "meal_${meal.mealType}_${meal.time}_$idx" }) { _, meal ->
-            GfCard(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(end = Dimens.sm)
-                    ) {
-                        GfOverline(text = "SCHEDULED • ${meal.time}")
-                        Text(
-                            text = meal.mealType,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = GetFitTheme.colors.textPrimary,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    GfTextButton(
-                        text = "+ Log to Diary",
-                        onClick = { onLogMealToDiary(meal, meal.mealType) },
-                        color = GetFitTheme.colors.accent
-                    )
+        Spacer(modifier = Modifier.height(Dimens.xs))
+        Text(
+            text = buildAnnotatedString {
+                withStyle(SpanStyle(color = GetFitTheme.colors.textPrimary, fontWeight = FontWeight.SemiBold)) {
+                    append("${meal.calories}")
                 }
+                append(" kcal · P ${meal.protein}g · C ${meal.carbs}g · F ${meal.fat}g")
+            },
+            style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
+            color = GetFitTheme.colors.textSecondary
+        )
 
-                Spacer(modifier = Modifier.height(Dimens.xs))
-                Text(
-                    text = if (meal.carbs > 0 || meal.fat > 0) {
-                        "${meal.calories} kcal • ${meal.protein}g P • ${meal.carbs}g C • ${meal.fat}g F"
-                    } else {
-                        "${meal.calories} kcal • ${meal.protein}g Protein"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = GetFitTheme.colors.accent
-                )
-
-                Spacer(modifier = Modifier.height(Dimens.sm))
-                // Food items in this meal
-                meal.foods.forEach { foodDesc ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
-                        modifier = Modifier.padding(vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "•",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = GetFitTheme.colors.textTertiary
-                        )
-                        Text(
-                            text = foodDesc,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = GetFitTheme.colors.textPrimary
-                        )
-                    }
+        Spacer(modifier = Modifier.height(Dimens.sm))
+        Column(modifier = Modifier.alpha(if (isLogged) 0.6f else 1f)) {
+            meal.items.forEach { foodDesc ->
+                Row(
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(vertical = 2.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .size(4.dp)
+                            .clip(CircleShape)
+                            .background(GetFitTheme.colors.textTertiary)
+                    )
+                    Text(
+                        text = foodDesc,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = GetFitTheme.colors.textSecondary
+                    )
                 }
             }
         }
@@ -2089,31 +2390,64 @@ private fun CopyYesterdayMealsDialog(
 
                 Spacer(modifier = Modifier.height(Dimens.md))
 
-                // Action Buttons (Cancel / Copy Selected)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
-                ) {
-                    GfSecondaryButton(
-                        text = "Cancel",
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    GfPrimaryButton(
-                        text = if (selectedCount > 0) "Copy ($selectedCount)" else "Copy Selected",
-                        onClick = {
-                            val chosen = summaries
-                                .filter { selectedMeals[it.mealType] == true && it.itemsCount > 0 }
-                                .map { it.mealType }
-                                .toSet()
-                            onConfirmCopy(chosen)
-                        },
-                        enabled = selectedCount > 0,
-                        modifier = Modifier.weight(1.5f)
-                    )
-                }
+                // Action Button (Copy Selected)
+                GfPrimaryButton(
+                    text = if (selectedCount > 0) "Copy ($selectedCount)" else "Copy Selected",
+                    onClick = {
+                        val chosen = summaries
+                            .filter { selectedMeals[it.mealType] == true && it.itemsCount > 0 }
+                            .map { it.mealType }
+                            .toSet()
+                        onConfirmCopy(chosen)
+                    },
+                    enabled = selectedCount > 0,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }
+}
+
+@Composable
+private fun EditWaterTargetDialog(
+    currentTarget: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit
+) {
+    var targetText by remember { mutableStateOf(currentTarget.toString()) }
+    val parsed = targetText.toIntOrNull()
+    val isValid = parsed != null && parsed in 500..10000
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = GetFitTheme.colors.surface1,
+        titleContentColor = GetFitTheme.colors.textPrimary,
+        textContentColor = GetFitTheme.colors.textSecondary,
+        title = { Text("Daily Hydration Target", style = MaterialTheme.typography.titleLarge) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(Dimens.sm)) {
+                Text(
+                    text = "Set your daily water goal in ml.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GetFitTheme.colors.textSecondary
+                )
+                GfTextField(
+                    value = targetText,
+                    onValueChange = { targetText = it.filter { ch -> ch.isDigit() } },
+                    label = "Target (ml)",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            GfTextButton(
+                text = "Save Target",
+                enabled = isValid,
+                onClick = {
+                    if (parsed != null) onConfirm(parsed)
+                }
+            )
+        }
+    )
 }

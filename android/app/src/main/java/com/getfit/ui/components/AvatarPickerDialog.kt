@@ -10,7 +10,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.getfit.ui.components.AvatarArtwork
 import com.getfit.ui.theme.CaloriesOrange
 import com.getfit.ui.util.AvatarManager
 import com.getfit.ui.util.ProfileAvatar
@@ -133,13 +134,13 @@ fun AvatarPickerDialog(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                // Avatar circle with emoji
+                                // HD Canvas avatar art
                                 Box(
                                     modifier = Modifier
                                         .size(46.dp)
                                         .clip(CircleShape)
                                         .background(
-                                            if (isUnlocked) avatar.accentColor.copy(alpha = 0.2f)
+                                            if (isUnlocked) avatar.accentColor.copy(alpha = 0.18f)
                                             else MaterialTheme.colorScheme.surfaceVariant
                                         )
                                         .border(
@@ -149,16 +150,12 @@ fun AvatarPickerDialog(
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    if (isUnlocked) {
-                                        Text(text = avatar.emoji, style = MaterialTheme.typography.headlineLarge)
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Default.Lock,
-                                            contentDescription = "Locked",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
+                                    AvatarArtwork(
+                                        avatarId = avatar.id,
+                                        accentColor = avatar.accentColor,
+                                        size = 36.dp,
+                                        locked = !isUnlocked
+                                    )
                                 }
 
                                 // Info column
@@ -236,7 +233,7 @@ fun AvatarPickerDialog(
                                             horizontalArrangement = Arrangement.spacedBy(3.dp)
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.Check,
+                                                imageVector = Icons.Rounded.Check,
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.onPrimary,
                                                 modifier = Modifier.size(12.dp)

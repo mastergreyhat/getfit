@@ -4,9 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -15,7 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,6 +44,14 @@ fun SetLogRow(
     } else {
         GetFitTheme.colors.surface1
     }
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val dismissKeyboard = KeyboardActions(
+        onDone = {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+        }
+    )
 
     Row(
         modifier = modifier
@@ -107,7 +118,8 @@ fun SetLogRow(
                 },
             placeholder = { Text("kg", style = MaterialTheme.typography.labelSmall, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+            keyboardActions = dismissKeyboard,
             textStyle = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center),
             shape = RoundedCornerShape(8.dp)
         )
@@ -129,29 +141,11 @@ fun SetLogRow(
                 },
             placeholder = { Text("reps", style = MaterialTheme.typography.labelSmall, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            keyboardActions = dismissKeyboard,
             textStyle = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center),
             shape = RoundedCornerShape(8.dp)
         )
-
-        // Completed check button
-        FilledIconToggleButton(
-            checked = isCompleted,
-            onCheckedChange = onCompletedChange,
-            modifier = Modifier.size(36.dp),
-            colors = IconButtonDefaults.filledIconToggleButtonColors(
-                checkedContainerColor = GetFitTheme.colors.success,
-                checkedContentColor = GetFitTheme.colors.onAccent,
-                containerColor = GetFitTheme.colors.surface2,
-                contentColor = GetFitTheme.colors.textTertiary
-            )
-        ) {
-            Icon(
-                imageVector = Icons.Default.Check,
-                contentDescription = "Mark Set Done",
-                modifier = Modifier.size(18.dp)
-            )
-        }
 
         // Remove Set button (if set can be removed)
         if (onDeleteSet != null) {

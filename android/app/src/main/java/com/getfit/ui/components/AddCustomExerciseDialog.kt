@@ -308,11 +308,6 @@ fun AddCustomExerciseDialog(
             ) {
                 Text(confirmButtonText, fontWeight = FontWeight.Bold)
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
         }
     )
 }

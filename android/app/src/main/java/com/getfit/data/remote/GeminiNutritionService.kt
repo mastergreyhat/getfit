@@ -28,14 +28,126 @@ import java.net.URLEncoder
  */
 object GeminiNutritionService {
 
+    data class GeneratedMeal(
+        val mealType: String,
+        val title: String,
+        val calories: Int,
+        val protein: Int,
+        val carbs: Int,
+        val fat: Int,
+        val items: List<String>
+    )
+
+    data class GeneratedMealPlan(
+        val summary: String,
+        val totalCalories: Int,
+        val totalProtein: Int,
+        val totalCarbs: Int,
+        val totalFat: Int,
+        val meals: List<GeneratedMeal>
+    )
+
     private const val TAG = "GeminiNutritionService"
     private const val CLOUDFLARE_WORKER_ENDPOINT = "https://getfit-nutrition-proxy.aswinvijay4686.workers.dev/api/nutrition"
+    private const val CLOUDFLARE_MEAL_PLAN_ENDPOINT = "https://getfit-nutrition-proxy.aswinvijay4686.workers.dev/api/meal-plan"
     private const val GEMINI_API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     private const val USDA_API_ENDPOINT = "https://api.nal.usda.gov/fdc/v1/foods/search"
 
     private const val CONNECT_TIMEOUT_MS = 10000
     private const val READ_TIMEOUT_MS = 30000
     private const val OVERALL_TIMEOUT_MS = 35000L
+
+    suspend fun generateMealPlan(
+        context: Context,
+        pantryItems: String,
+        targetCalories: Int,
+        targetProtein: Int,
+        targetCarbs: Int,
+        targetFat: Int,
+        goal: String
+    ): Result<GeneratedMealPlan> = withContext(Dispatchers.IO) {
+        val token = AuthPreferences.getToken(context)
+        if (token.isNullOrBlank()) {
+            return@withContext Result.failure(Exception("Please sign in to generate AI meal plans."))
+        }
+        val trimmed = pantryItems.trim()
+        if (trimmed.isEmpty()) {
+            return@withContext Result.failure(Exception("Please enter at least one ingredient."))
+        }
+
+        var conn: HttpURLConnection? = null
+        try {
+            val url = URL(CLOUDFLARE_MEAL_PLAN_ENDPOINT)
+            conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 15000
+                readTimeout = 45000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("Authorization", "Bearer $token")
+            }
+
+            val payload = JsonObject().apply {
+                addProperty("items", trimmed)
+                addProperty("targetCalories", targetCalories)
+                addProperty("targetProtein", targetProtein)
+                addProperty("targetCarbs", targetCarbs)
+                addProperty("targetFat", targetFat)
+                addProperty("goal", goal)
+            }
+            OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
+
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val responseText = stream?.bufferedReader()?.use { it.readText() } ?: "{}"
+
+            if (code in 200..299) {
+                val root = JsonParser.parseString(responseText).asJsonObject
+                val mealsArray = root.getAsJsonArray("meals") ?: JsonArray()
+                val meals = mealsArray.mapNotNull { el ->
+                    runCatching {
+                        val m = el.asJsonObject
+                        val itemsList = m.getAsJsonArray("items")?.map { it.asString } ?: emptyList()
+                        GeneratedMeal(
+                            mealType = m.get("mealType")?.asString ?: "Meal",
+                            title = m.get("title")?.asString ?: "Meal",
+                            calories = m.get("calories")?.asInt ?: 0,
+                            protein = m.get("protein")?.asInt ?: 0,
+                            carbs = m.get("carbs")?.asInt ?: 0,
+                            fat = m.get("fat")?.asInt ?: 0,
+                            items = itemsList
+                        )
+                    }.getOrNull()
+                }
+                if (meals.isEmpty()) {
+                    return@withContext Result.failure(Exception("Could not generate meals for those items. Try adding more ingredients."))
+                }
+                Result.success(
+                    GeneratedMealPlan(
+                        summary = root.get("summary")?.asString ?: "Daily meal plan tailored to your calorie target.",
+                        totalCalories = root.get("totalCalories")?.asInt ?: meals.sumOf { it.calories },
+                        totalProtein = root.get("totalProtein")?.asInt ?: meals.sumOf { it.protein },
+                        totalCarbs = root.get("totalCarbs")?.asInt ?: meals.sumOf { it.carbs },
+                        totalFat = root.get("totalFat")?.asInt ?: meals.sumOf { it.fat },
+                        meals = meals
+                    )
+                )
+            } else {
+                val errMsg = runCatching {
+                    JsonParser.parseString(responseText).asJsonObject.get("error")?.asString
+                }.getOrNull() ?: "Failed to generate meal plan ($code)"
+                Result.failure(Exception(errMsg))
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "generateMealPlan exception: ${e.message}")
+            Result.failure(Exception(e.localizedMessage ?: "Network error generating meal plan."))
+        } finally {
+            try {
+                conn?.disconnect()
+            } catch (_: Exception) {}
+        }
+    }
 
     /**
      * Searches for a food item across AI and verified nutrition databases.
@@ -118,8 +230,8 @@ object GeminiNutritionService {
             val url = URL("$GEMINI_API_ENDPOINT?key=$apiKey")
             conn = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
-                connectTimeout = CONNECT_TIMEOUT_MS
-                readTimeout = READ_TIMEOUT_MS
+                connectTimeout = 15000
+                readTimeout = 45000
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json")
             }

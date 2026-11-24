@@ -387,20 +387,77 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val currentPB = _uiState.value.personalBests[exerciseId] ?: 0.0
             val isPb = weight > currentPB && reps > 0
+            val dateStr = AppDateManager.selectedDate.value
+            val existing = _uiState.value.todayLogs.find {
+                (it.exerciseId == exerciseId || it.exerciseName.equals(exerciseName, ignoreCase = true)) &&
+                    it.setNumber == setNumber
+            }
 
             val log = WorkoutLog(
+                id = existing?.id ?: 0L,
                 exerciseId = exerciseId,
                 exerciseName = exerciseName,
                 setNumber = setNumber,
                 reps = reps,
                 weight = weight,
-                date = AppDateManager.selectedDate.value,
+                date = dateStr,
                 workoutPlanDay = workoutPlanDay,
                 notes = notes,
                 isPersonalBest = isPb
             )
             repository.insertWorkoutLog(log)
             StreakManager.recordLogAction(getApplication(), log.date)
+            CloudSyncManager.triggerSilentUpload(getApplication(), repository)
+        }
+    }
+
+    /**
+     * Replaces all logged sets for this exercise on the currently selected date so
+     * deleted sets do not linger and reopening shows the exact saved state.
+     */
+    fun saveSessionSets(
+        exerciseId: Long,
+        exerciseName: String,
+        workoutPlanDay: String,
+        notes: String,
+        setsData: List<Pair<Double, Int>>
+    ) {
+        viewModelScope.launch {
+            val currentPB = _uiState.value.personalBests[exerciseId] ?: 0.0
+            val dateStr = AppDateManager.selectedDate.value
+            val existingForExercise = _uiState.value.todayLogs.filter {
+                it.exerciseId == exerciseId || it.exerciseName.equals(exerciseName, ignoreCase = true)
+            }
+
+            // Remove any extra sets beyond the saved count
+            existingForExercise
+                .filter { it.setNumber > setsData.size }
+                .forEach { repository.deleteWorkoutLog(it) }
+
+            // Upsert exact sets 1..setsData.size
+            setsData.forEachIndexed { idx, (weight, reps) ->
+                val setNum = idx + 1
+                val existing = existingForExercise.find { it.setNumber == setNum }
+                val isPb = weight > currentPB && reps > 0
+                repository.insertWorkoutLog(
+                    WorkoutLog(
+                        id = existing?.id ?: 0L,
+                        exerciseId = exerciseId,
+                        exerciseName = exerciseName,
+                        setNumber = setNum,
+                        reps = reps,
+                        weight = weight,
+                        date = dateStr,
+                        workoutPlanDay = workoutPlanDay,
+                        notes = notes,
+                        isPersonalBest = isPb
+                    )
+                )
+            }
+
+            if (setsData.isNotEmpty()) {
+                StreakManager.recordLogAction(getApplication(), dateStr)
+            }
             CloudSyncManager.triggerSilentUpload(getApplication(), repository)
         }
     }

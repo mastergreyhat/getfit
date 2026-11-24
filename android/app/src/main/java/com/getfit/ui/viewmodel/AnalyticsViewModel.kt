@@ -10,6 +10,7 @@ import com.getfit.data.entity.UserProfile
 import com.getfit.data.entity.WeightLog
 import com.getfit.data.entity.WorkoutLog
 import com.getfit.data.repository.GetFitRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -70,40 +71,36 @@ class AnalyticsViewModel(application: Application) : AndroidViewModel(applicatio
         cal.add(Calendar.DAY_OF_YEAR, -6)
         val startDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
 
-        // 1. Observe Profile
+        // 1 & 3. Observe Profile & Weight Logs together so fallback weight is always accurate
         viewModelScope.launch {
-            repository.getUserProfile().collect { profile ->
+            combine(
+                repository.getUserProfile(),
+                repository.getAllWeightLogs()
+            ) { profile, weights ->
                 val user = profile ?: UserProfile()
+                val latestWeight = weights.lastOrNull()?.weightKg ?: user.weight
+                Pair(user, Pair(weights, latestWeight))
+            }.collect { (user, weightPair) ->
+                val (weights, latestWeight) = weightPair
                 _uiState.update {
                     it.copy(
                         userProfile = user,
-                        currentWeight = if (it.weightLogs.isNotEmpty()) it.weightLogs.last().weightKg else user.weight
+                        weightLogs = weights,
+                        currentWeight = latestWeight
                     )
                 }
             }
         }
 
         // 2. Observe 7-Day Food Logs for Calorie & Protein Hit Rate
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             repository.getFoodLogsForDateRange(startDate, today).collect { logs ->
                 calculateWeeklyNutrition(logs)
             }
         }
 
-        // 3. Observe Weight Logs
-        viewModelScope.launch {
-            repository.getAllWeightLogs().collect { weights ->
-                _uiState.update {
-                    it.copy(
-                        weightLogs = weights,
-                        currentWeight = weights.lastOrNull()?.weightKg ?: it.userProfile.weight
-                    )
-                }
-            }
-        }
-
         // 4. Observe Workout Logs for Strength Curves & Volume
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             val start30Cal = Calendar.getInstance()
             start30Cal.add(Calendar.DAY_OF_YEAR, -30)
             val start30 = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(start30Cal.time)
