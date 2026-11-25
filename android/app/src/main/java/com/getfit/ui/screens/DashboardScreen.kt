@@ -185,18 +185,16 @@ fun DashboardScreen(
 
             Spacer(modifier = Modifier.height(Dimens.md))
 
-            // Balanced Hero: fixed-size true-circle Ring on left, flexible Macros on right
-            Row(
+            // Balanced Hero: fixed-size true-circle Ring on left, centered Macros on right, caption aligned below Ring
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = Dimens.xs),
-                horizontalArrangement = Arrangement.spacedBy(Dimens.md),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(vertical = Dimens.xs)
             ) {
-                Column(
-                    modifier = Modifier.width(138.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(Dimens.xs)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.md),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     GfRing(
                         progress = calProgress,
@@ -227,49 +225,53 @@ fun DashboardScreen(
                             )
                         }
                     }
-                    Text(
-                        text = "${caloriesConsumed.toInt()} / ${calorieTarget.toInt()} kcal",
-                        style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
-                        color = GetFitTheme.colors.textSecondary,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
 
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(Dimens.lg)
-                ) {
-                    val proteinTarget = uiState.userProfile.dailyProteinTarget.toFloat().coerceAtLeast(100f)
-                    val carbsTarget = uiState.userProfile.dailyCarbsTarget.toFloat().coerceAtLeast(150f)
-                    val fatTarget = uiState.userProfile.dailyFatTarget.toFloat().coerceAtLeast(40f)
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(138.dp),
+                        verticalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        val proteinTarget = uiState.userProfile.dailyProteinTarget.toFloat().coerceAtLeast(100f)
+                        val carbsTarget = uiState.userProfile.dailyCarbsTarget.toFloat().coerceAtLeast(150f)
+                        val fatTarget = uiState.userProfile.dailyFatTarget.toFloat().coerceAtLeast(40f)
 
-                    MacroStat(
-                        modifier = Modifier.fillMaxWidth(),
-                        label = "Protein",
-                        current = uiState.totalProtein.toFloat(),
-                        target = proteinTarget,
-                        color = GetFitTheme.colors.protein,
-                        inlineHeader = true
-                    )
-                    MacroStat(
-                        modifier = Modifier.fillMaxWidth(),
-                        label = "Carbs",
-                        current = uiState.totalCarbs.toFloat(),
-                        target = carbsTarget,
-                        color = GetFitTheme.colors.carbs,
-                        inlineHeader = true
-                    )
-                    MacroStat(
-                        modifier = Modifier.fillMaxWidth(),
-                        label = "Fat",
-                        current = uiState.totalFat.toFloat(),
-                        target = fatTarget,
-                        color = GetFitTheme.colors.fat,
-                        inlineHeader = true
-                    )
+                        MacroStat(
+                            modifier = Modifier.fillMaxWidth(),
+                            label = "Protein",
+                            current = uiState.totalProtein.toFloat(),
+                            target = proteinTarget,
+                            color = GetFitTheme.colors.protein,
+                            inlineHeader = true
+                        )
+                        MacroStat(
+                            modifier = Modifier.fillMaxWidth(),
+                            label = "Carbs",
+                            current = uiState.totalCarbs.toFloat(),
+                            target = carbsTarget,
+                            color = GetFitTheme.colors.carbs,
+                            inlineHeader = true
+                        )
+                        MacroStat(
+                            modifier = Modifier.fillMaxWidth(),
+                            label = "Fat",
+                            current = uiState.totalFat.toFloat(),
+                            target = fatTarget,
+                            color = GetFitTheme.colors.fat,
+                            inlineHeader = true
+                        )
+                    }
                 }
+                Spacer(modifier = Modifier.height(Dimens.xs))
+                Text(
+                    text = "${caloriesConsumed.toInt()} / ${calorieTarget.toInt()} kcal",
+                    style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+                    color = GetFitTheme.colors.textSecondary,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.width(138.dp)
+                )
             }
         }
 
