@@ -1,6 +1,7 @@
 package com.getfit.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -233,36 +234,18 @@ fun WorkoutDetailScreen(
         )
     }
 
-    Scaffold(
-        containerColor = GetFitTheme.colors.background,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = exerciseName,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = GetFitTheme.colors.textPrimary
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = GetFitTheme.colors.textPrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = GetFitTheme.colors.background
-                )
-            )
-        }
-    ) { paddingValues ->
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(GetFitTheme.colors.background)
+    ) {
+        com.getfit.ui.components.core.GfTopBar(
+            title = exerciseName,
+            onBack = onNavigateBack
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Dimens.screenGutter, vertical = Dimens.md),
             verticalArrangement = Arrangement.spacedBy(Dimens.lg)

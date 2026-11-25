@@ -1,5 +1,11 @@
 package com.getfit.ui.screens
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -44,7 +50,8 @@ import com.getfit.ui.viewmodel.AnalyticsViewModel
 @Composable
 fun AnalyticsScreen(
     viewModel: AnalyticsViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    isTransitionSettled: Boolean = true
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showWeightDialog by remember { mutableStateOf(false) }
@@ -89,48 +96,41 @@ fun AnalyticsScreen(
         )
     }
 
-    Scaffold(
-        containerColor = GetFitTheme.colors.background,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Progress & Analytics",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = GetFitTheme.colors.textPrimary
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(GetFitTheme.colors.background)
+    ) {
+        com.getfit.ui.components.core.GfTopBar(
+            title = "Progress & Analytics",
+            onBack = onNavigateBack
+        )
+
+        val showSkeleton = uiState.isLoading || !isTransitionSettled
+        Crossfade(
+            targetState = showSkeleton,
+            animationSpec = tween(durationMillis = 120),
+            label = "analytics_loading_crossfade",
+            modifier = Modifier.fillMaxSize()
+        ) { loading ->
+            if (loading) {
+                AnalyticsSkeletonContent()
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(GetFitTheme.colors.background),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.lg),
+                    contentPadding = PaddingValues(
+                        start = Dimens.screenGutter,
+                        end = Dimens.screenGutter,
+                        top = Dimens.md,
+                        bottom = Dimens.lg
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = GetFitTheme.colors.textPrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = GetFitTheme.colors.background
-                )
-            )
-        }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(GetFitTheme.colors.background),
-            verticalArrangement = Arrangement.spacedBy(Dimens.lg),
-            contentPadding = PaddingValues(
-                start = Dimens.screenGutter,
-                end = Dimens.screenGutter,
-                top = Dimens.md,
-                bottom = Dimens.lg
-            )
-        ) {
-            // Top Highlights Hero (One hero per screen)
-            item {
-                GfHeroCard(modifier = Modifier.fillMaxWidth()) {
+                ) {
+                    // Top Highlights Hero (fixed minHeight 120.dp to match skeleton)
+                    item {
+                        GfHeroCard(modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceAround,
@@ -175,9 +175,9 @@ fun AnalyticsScreen(
                 }
             }
 
-            // 7-Day Calorie & Macro Target Chart
+            // 7-Day Calorie & Macro Target Chart (fixed minHeight 220.dp)
             item {
-                GfCard(modifier = Modifier.fillMaxWidth()) {
+                GfCard(modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp)) {
                     Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -285,9 +285,9 @@ fun AnalyticsScreen(
                 }
             }
 
-            // Strength Progression Curve
+            // Strength Progression Curve (fixed minHeight 250.dp)
             item {
-                GfCard(modifier = Modifier.fillMaxWidth()) {
+                GfCard(modifier = Modifier.fillMaxWidth().heightIn(min = 250.dp)) {
                     Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -539,7 +539,61 @@ fun AnalyticsScreen(
                     }
                 }
             }
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun AnalyticsSkeletonContent() {
+    val infiniteTransition = rememberInfiniteTransition(label = "analytics_shimmer")
+    val shimmerAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.06f,
+        targetValue = 0.12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1200),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "analytics_shimmer_alpha"
+    )
+    val shimmerColor = GetFitTheme.colors.textPrimary.copy(alpha = shimmerAlpha)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(GetFitTheme.colors.background)
+            .padding(horizontal = Dimens.screenGutter, vertical = Dimens.md),
+        verticalArrangement = Arrangement.spacedBy(Dimens.lg)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .clip(RoundedCornerShape(Dimens.xxl))
+                .background(shimmerColor)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp)
+                .clip(RoundedCornerShape(Dimens.xxl))
+                .background(shimmerColor)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(250.dp)
+                .clip(RoundedCornerShape(Dimens.xxl))
+                .background(shimmerColor)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp)
+                .clip(RoundedCornerShape(Dimens.xxl))
+                .background(shimmerColor)
+        )
     }
 }
 

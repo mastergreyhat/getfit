@@ -1,12 +1,16 @@
 package com.getfit.ui.navigation
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
@@ -108,6 +112,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     }
 }
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun GetFitNavHost(
     modifier: Modifier = Modifier,
@@ -142,6 +147,7 @@ fun GetFitNavHost(
     val foodViewModel: FoodViewModel = viewModel()
     val workoutViewModel: WorkoutViewModel = viewModel()
     val profileViewModel: ProfileViewModel = viewModel()
+    val analyticsViewModel: AnalyticsViewModel = viewModel()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -153,7 +159,11 @@ fun GetFitNavHost(
         modifier = modifier,
         containerColor = GetFitTheme.colors.background,
         topBar = {
-            if (isBottomBarVisible) {
+            AnimatedVisibility(
+                visible = isBottomBarVisible,
+                enter = fadeIn(tween(100)),
+                exit = fadeOut(tween(100))
+            ) {
                 CleanTopHeader(
                     currentRoute = currentRoute,
                     onNavigateToAnalytics = {
@@ -291,18 +301,19 @@ fun GetFitNavHost(
 
             composable(
                 route = Screen.Analytics.route,
-                enterTransition = { fadeIn(tween(160)) + slideInVertically(tween(160)) { detailSlidePx } },
+                enterTransition = { fadeIn(tween(160)) + slideInHorizontally(tween(200)) { it / 12 } },
                 exitTransition = { fadeOut(tween(90)) },
                 popEnterTransition = { fadeIn(tween(160)) },
-                popExitTransition = { fadeOut(tween(90)) + slideOutVertically(tween(90)) { detailSlidePx } }
+                popExitTransition = { fadeOut(tween(90)) + slideOutHorizontally(tween(160)) { it / 12 } }
             ) {
-                val analyticsViewModel: AnalyticsViewModel = viewModel()
+                val isTransitionSettled = transition.currentState == transition.targetState
                 GfScreenSurface {
                     AnalyticsScreen(
                         viewModel = analyticsViewModel,
                         onNavigateBack = {
                             navController.popBackStack()
-                        }
+                        },
+                        isTransitionSettled = isTransitionSettled
                     )
                 }
             }
@@ -361,10 +372,10 @@ fun GetFitNavHost(
                     navArgument("reps") { type = NavType.StringType },
                     navArgument("dayName") { type = NavType.StringType }
                 ),
-                enterTransition = { fadeIn(tween(160)) + slideInVertically(tween(160)) { detailSlidePx } },
+                enterTransition = { fadeIn(tween(160)) + slideInHorizontally(tween(200)) { it / 12 } },
                 exitTransition = { fadeOut(tween(90)) },
                 popEnterTransition = { fadeIn(tween(160)) },
-                popExitTransition = { fadeOut(tween(90)) + slideOutVertically(tween(90)) { detailSlidePx } }
+                popExitTransition = { fadeOut(tween(90)) + slideOutHorizontally(tween(160)) { it / 12 } }
             ) { backStackEntry ->
                 val exerciseId = backStackEntry.arguments?.getLong("exerciseId") ?: 0L
                 val exerciseNameRaw = backStackEntry.arguments?.getString("exerciseName") ?: ""
@@ -412,37 +423,45 @@ fun GetFitNavHost(
             }
         }
 
-        if (isBottomBarVisible) {
-            GfBottomFade(modifier = Modifier.align(Alignment.BottomCenter))
+        val bottomBarSlidePx = with(LocalDensity.current) { 24.dp.roundToPx() }
+        AnimatedVisibility(
+            visible = isBottomBarVisible,
+            enter = fadeIn(tween(100)) + slideInVertically(tween(140)) { bottomBarSlidePx },
+            exit = fadeOut(tween(100)) + slideOutVertically(tween(120)) { bottomBarSlidePx },
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                GfBottomFade(modifier = Modifier.align(Alignment.BottomCenter))
 
-            val haptic = LocalHapticFeedback.current
-            val routeIndex = bottomNavItems.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
-            var pendingIndex by remember { mutableStateOf<Int?>(null) }
-            LaunchedEffect(currentRoute) {
-                if (pendingIndex != null && routeIndex == pendingIndex) {
-                    pendingIndex = null
-                }
-            }
-            val selectedIndex = pendingIndex ?: routeIndex
-
-            GfBottomBar(
-                items = gfBottomNavItems,
-                selectedIndex = selectedIndex,
-                onItemSelected = { index ->
-                    val screen = bottomNavItems[index]
-                    if (index == selectedIndex || currentRoute == screen.route) return@GfBottomBar
-                    pendingIndex = index
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    navController.navigate(screen.route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
-                        }
-                        launchSingleTop = true
-                        restoreState = true
+                val haptic = LocalHapticFeedback.current
+                val routeIndex = bottomNavItems.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
+                var pendingIndex by remember { mutableStateOf<Int?>(null) }
+                LaunchedEffect(currentRoute) {
+                    if (pendingIndex != null && routeIndex == pendingIndex) {
+                        pendingIndex = null
                     }
-                },
-                modifier = Modifier.align(Alignment.BottomCenter)
-            )
+                }
+                val selectedIndex = pendingIndex ?: routeIndex
+
+                GfBottomBar(
+                    items = gfBottomNavItems,
+                    selectedIndex = selectedIndex,
+                    onItemSelected = { index ->
+                        val screen = bottomNavItems[index]
+                        if (index == selectedIndex || currentRoute == screen.route) return@GfBottomBar
+                        pendingIndex = index
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        navController.navigate(screen.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
+            }
         }
     }
 }

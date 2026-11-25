@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Home
@@ -67,6 +68,69 @@ fun GfScreenSurface(content: @Composable () -> Unit) {
             .background(GetFitTheme.colors.background)
     ) {
         content()
+    }
+}
+
+/**
+ * Shared 64.dp top bar for pushed screens (Analytics, Workout Detail, Add Custom Food).
+ * Applies statusBarsPadding() once and matches CleanTopHeader horizontal padding.
+ */
+@Composable
+fun GfTopBar(
+    title: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    trailing: (@Composable () -> Unit)? = null
+) {
+    Surface(
+        color = GetFitTheme.colors.background,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .statusBarsPadding()
+                .fillMaxWidth()
+                .height(64.dp)
+                .padding(horizontal = Dimens.screenGutter),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Dimens.md),
+                modifier = Modifier.weight(1f)
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .pressable(onClick = onBack),
+                    shape = CircleShape,
+                    color = GetFitTheme.colors.surface1,
+                    border = BorderStroke(1.dp, GetFitTheme.colors.hairline)
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = GetFitTheme.colors.textPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = GetFitTheme.colors.textPrimary,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+            }
+            if (trailing != null) {
+                trailing()
+            }
+        }
     }
 }
 

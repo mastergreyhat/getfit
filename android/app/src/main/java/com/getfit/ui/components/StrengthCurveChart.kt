@@ -1,6 +1,8 @@
 package com.getfit.ui.components
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -12,13 +14,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -113,7 +121,15 @@ fun StrengthCurveChart(
             }
         }
 
-        // Real Interactive Line Graph
+        // Real Interactive Line Graph (cached geometry/paths via drawWithCache + 400ms first-draw reveal)
+        var drawnOnce by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { drawnOnce = true }
+        val revealProgress by animateFloatAsState(
+            targetValue = if (drawnOnce) 1f else 0f,
+            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+            label = "strength_curve_reveal"
+        )
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -123,116 +139,98 @@ fun StrengthCurveChart(
                 .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
             val surfaceColor = MaterialTheme.colorScheme.surface
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val w = size.width
-                val h = size.height - 24.dp.toPx() // Reserve space at bottom for date labels
-                val weightRange = (maxWeight - minWeight).coerceAtLeast(1.0)
+            Spacer(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawWithCache {
+                        val w = size.width
+                        val h = size.height - 24.dp.toPx()
+                        val weightRange = (maxWeight - minWeight).coerceAtLeast(1.0)
+                        val dashEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                        val gridY = listOf(h * 0.15f, h * 0.55f, h * 0.95f)
+                        val strokeStyle = Stroke(
+                            width = 3.dp.toPx(),
+                            cap = StrokeCap.Round,
+                            join = StrokeJoin.Round
+                        )
 
-                // Draw 3 horizontal gridlines (Top, Middle, Bottom)
-                val gridLevels = listOf(0.15f, 0.55f, 0.95f)
-                gridLevels.forEach { fraction ->
-                    val y = h * fraction
-                    drawLine(
-                        color = gridColor,
-                        start = Offset(0f, y),
-                        end = Offset(w, y),
-                        strokeWidth = 1.dp.toPx(),
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
-                    )
-                }
-
-                if (displayPoints.size == 1) {
-                    // Single session point
-                    val pt = displayPoints[0]
-                    val cx = w / 2f
-                    val normalizedY = ((pt.weight - minWeight) / weightRange).toFloat().coerceIn(0f, 1f)
-                    val cy = h - (normalizedY * (h - 20.dp.toPx())) - 10.dp.toPx()
-
-                    // Glow circle
-                    drawCircle(
-                        color = lineColor.copy(alpha = 0.25f),
-                        radius = 16.dp.toPx(),
-                        center = Offset(cx, cy)
-                    )
-                    drawCircle(
-                        color = lineColor,
-                        radius = 7.dp.toPx(),
-                        center = Offset(cx, cy)
-                    )
-                    drawCircle(
-                        color = surfaceColor,
-                        radius = 3.dp.toPx(),
-                        center = Offset(cx, cy)
-                    )
-                } else {
-                    // Multiple points connected as a line curve with gradient area
-                    val coords = displayPoints.mapIndexed { index, pt ->
-                        val cx = (w / (displayPoints.size - 1)) * index
-                        val normalizedY = ((pt.weight - minWeight) / weightRange).toFloat().coerceIn(0f, 1f)
-                        val cy = h - (normalizedY * (h - 24.dp.toPx())) - 12.dp.toPx()
-                        Offset(cx, cy)
-                    }
-
-                    // Build area fill path
-                    val fillPath = Path().apply {
-                        moveTo(coords.first().x, coords.first().y)
-                        for (i in 1 until coords.size) {
-                            val p0 = coords[i - 1]
-                            val p1 = coords[i]
-                            val midX = (p0.x + p1.x) / 2f
-                            cubicTo(midX, p0.y, midX, p1.y, p1.x, p1.y)
+                        val coords = if (displayPoints.size == 1) {
+                            val pt = displayPoints[0]
+                            val normalizedY = ((pt.weight - minWeight) / weightRange).toFloat().coerceIn(0f, 1f)
+                            val cy = h - (normalizedY * (h - 20.dp.toPx())) - 10.dp.toPx()
+                            listOf(Offset(w / 2f, cy))
+                        } else {
+                            displayPoints.mapIndexed { index, pt ->
+                                val cx = (w / (displayPoints.size - 1)) * index
+                                val normalizedY = ((pt.weight - minWeight) / weightRange).toFloat().coerceIn(0f, 1f)
+                                val cy = h - (normalizedY * (h - 24.dp.toPx())) - 12.dp.toPx()
+                                Offset(cx, cy)
+                            }
                         }
-                        lineTo(coords.last().x, h)
-                        lineTo(coords.first().x, h)
-                        close()
-                    }
 
-                    drawPath(
-                        path = fillPath,
-                        brush = Brush.verticalGradient(
+                        val fillPath = if (coords.size > 1) {
+                            Path().apply {
+                                moveTo(coords.first().x, coords.first().y)
+                                for (i in 1 until coords.size) {
+                                    val p0 = coords[i - 1]
+                                    val p1 = coords[i]
+                                    val midX = (p0.x + p1.x) / 2f
+                                    cubicTo(midX, p0.y, midX, p1.y, p1.x, p1.y)
+                                }
+                                lineTo(coords.last().x, h)
+                                lineTo(coords.first().x, h)
+                                close()
+                            }
+                        } else null
+
+                        val linePath = if (coords.size > 1) {
+                            Path().apply {
+                                moveTo(coords.first().x, coords.first().y)
+                                for (i in 1 until coords.size) {
+                                    val p0 = coords[i - 1]
+                                    val p1 = coords[i]
+                                    val midX = (p0.x + p1.x) / 2f
+                                    cubicTo(midX, p0.y, midX, p1.y, p1.x, p1.y)
+                                }
+                            }
+                        } else null
+
+                        val areaBrush = Brush.verticalGradient(
                             colors = listOf(lineColor.copy(alpha = 0.35f), Color.Transparent),
                             startY = 0f,
                             endY = h
                         )
-                    )
 
-                    // Build stroke line path
-                    val linePath = Path().apply {
-                        moveTo(coords.first().x, coords.first().y)
-                        for (i in 1 until coords.size) {
-                            val p0 = coords[i - 1]
-                            val p1 = coords[i]
-                            val midX = (p0.x + p1.x) / 2f
-                            cubicTo(midX, p0.y, midX, p1.y, p1.x, p1.y)
+                        onDrawBehind {
+                            gridY.forEach { y ->
+                                drawLine(
+                                    color = gridColor,
+                                    start = Offset(0f, y),
+                                    end = Offset(w, y),
+                                    strokeWidth = 1.dp.toPx(),
+                                    pathEffect = dashEffect
+                                )
+                            }
+
+                            clipRect(right = size.width * revealProgress) {
+                                if (coords.size == 1) {
+                                    val ptCenter = coords[0]
+                                    drawCircle(color = lineColor.copy(alpha = 0.25f), radius = 16.dp.toPx(), center = ptCenter)
+                                    drawCircle(color = lineColor, radius = 7.dp.toPx(), center = ptCenter)
+                                    drawCircle(color = surfaceColor, radius = 3.dp.toPx(), center = ptCenter)
+                                } else if (fillPath != null && linePath != null) {
+                                    drawPath(path = fillPath, brush = areaBrush)
+                                    drawPath(path = linePath, color = lineColor, style = strokeStyle)
+                                    coords.forEach { ptOffset ->
+                                        drawCircle(color = lineColor.copy(alpha = 0.3f), radius = 9.dp.toPx(), center = ptOffset)
+                                        drawCircle(color = lineColor, radius = 5.dp.toPx(), center = ptOffset)
+                                        drawCircle(color = surfaceColor, radius = 2.dp.toPx(), center = ptOffset)
+                                    }
+                                }
+                            }
                         }
                     }
-
-                    drawPath(
-                        path = linePath,
-                        color = lineColor,
-                        style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-                    )
-
-                    // Draw glowing data point dots
-                    coords.forEach { ptOffset ->
-                        drawCircle(
-                            color = lineColor.copy(alpha = 0.3f),
-                            radius = 9.dp.toPx(),
-                            center = ptOffset
-                        )
-                        drawCircle(
-                            color = lineColor,
-                            radius = 5.dp.toPx(),
-                            center = ptOffset
-                        )
-                        drawCircle(
-                            color = surfaceColor,
-                            radius = 2.dp.toPx(),
-                            center = ptOffset
-                        )
-                    }
-                }
-            }
+            )
 
             // X-Axis Date Labels & Weight Badges along the bottom
             Row(

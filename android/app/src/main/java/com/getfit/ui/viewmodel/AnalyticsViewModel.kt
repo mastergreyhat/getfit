@@ -39,6 +39,7 @@ data class MuscleVolumeStat(
 )
 
 data class AnalyticsUiState(
+    val isLoading: Boolean = true,
     val userProfile: UserProfile = UserProfile(),
     val weeklyStats: List<DailyCalorieStat> = emptyList(),
     val proteinHitRatePercentage: Int = 0,
@@ -46,7 +47,7 @@ data class AnalyticsUiState(
     val weightLogs: List<WeightLog> = emptyList(),
     val currentWeight: Double = 0.0,
     val strengthCurveExercises: List<String> = emptyList(),
-    val selectedExercise: String = "Flat Barbell Bench Press",
+    val selectedExercise: String = "",
     val exerciseHistory: List<StrengthPoint> = emptyList(),
     val personalBest: Double = 0.0,
     val muscleVolumes: List<MuscleVolumeStat> = emptyList()
@@ -71,48 +72,45 @@ class AnalyticsViewModel(application: Application) : AndroidViewModel(applicatio
         cal.add(Calendar.DAY_OF_YEAR, -6)
         val startDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
 
-        // 1 & 3. Observe Profile & Weight Logs together so fallback weight is always accurate
+        val start30Cal = Calendar.getInstance()
+        start30Cal.add(Calendar.DAY_OF_YEAR, -30)
+        val start30 = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(start30Cal.time)
+
+        val defaultExercises = ExerciseDatabase.getDefaultExercises()
+        val muscleGroups = listOf("Chest", "Back", "Shoulders", "Biceps", "Triceps", "Legs")
+
         viewModelScope.launch {
             combine(
-                repository.getUserProfile(),
-                repository.getAllWeightLogs()
-            ) { profile, weights ->
+                combine(repository.getUserProfile(), repository.getAllWeightLogs()) { p, w -> p to w },
+                repository.getFoodLogsForDateRange(startDate, today),
+                repository.getWorkoutLogsForDateRange(start30, today)
+            ) { (profile, weights), foodLogs, workoutLogs ->
                 val user = profile ?: UserProfile()
                 val latestWeight = weights.lastOrNull()?.weightKg ?: user.weight
-                Pair(user, Pair(weights, latestWeight))
-            }.collect { (user, weightPair) ->
-                val (weights, latestWeight) = weightPair
-                _uiState.update {
-                    it.copy(
-                        userProfile = user,
-                        weightLogs = weights,
-                        currentWeight = latestWeight
-                    )
+
+                val targetCal = user.dailyCalorieTarget.coerceAtLeast(1500)
+                val targetPro = user.dailyProteinTarget.coerceAtLeast(100)
+                val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                val dayNameFormat = SimpleDateFormat("EEE", Locale.getDefault())
+                val stats = mutableListOf<DailyCalorieStat>()
+                val dayCal = Calendar.getInstance()
+                dayCal.add(Calendar.DAY_OF_YEAR, -6)
+                var hitDays = 0
+                for (i in 0..6) {
+                    val dateStr = dateFormat.format(dayCal.time)
+                    val dayName = dayNameFormat.format(dayCal.time)
+                    val logsForDay = foodLogs.filter { it.date == dateStr }
+                    val totalCal = logsForDay.sumOf { it.totalCalories }
+                    val totalPro = logsForDay.sumOf { it.totalProtein }
+                    if (totalPro >= targetPro * 0.9) hitDays++
+                    stats.add(DailyCalorieStat(dateStr, dayName, totalCal, totalPro, targetCal, targetPro))
+                    dayCal.add(Calendar.DAY_OF_YEAR, 1)
                 }
-            }
-        }
+                val hitRate = ((hitDays.toDouble() / 7.0) * 100).toInt()
 
-        // 2. Observe 7-Day Food Logs for Calorie & Protein Hit Rate
-        viewModelScope.launch(Dispatchers.Default) {
-            repository.getFoodLogsForDateRange(startDate, today).collect { logs ->
-                calculateWeeklyNutrition(logs)
-            }
-        }
-
-        // 4. Observe Workout Logs for Strength Curves & Volume
-        viewModelScope.launch(Dispatchers.Default) {
-            val start30Cal = Calendar.getInstance()
-            start30Cal.add(Calendar.DAY_OF_YEAR, -30)
-            val start30 = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(start30Cal.time)
-
-            repository.getWorkoutLogsForDateRange(start30, today).collect { logs ->
-                val exercises = logs.map { it.exerciseName }.distinct()
-                val totalVol = logs.sumOf { it.weight * it.reps }
-
-                // Calculate weekly hypertrophy volume per muscle group (last 7 days)
-                val weeklyLogs = logs.filter { it.date >= startDate }
-                val defaultExercises = ExerciseDatabase.getDefaultExercises()
-                val muscleGroups = listOf("Chest", "Back", "Shoulders", "Biceps", "Triceps", "Legs")
+                val exercises = workoutLogs.map { it.exerciseName }.distinct()
+                val totalVol = workoutLogs.sumOf { it.weight * it.reps }
+                val weeklyLogs = workoutLogs.filter { it.date >= startDate }
                 val volumeStats = muscleGroups.map { mg ->
                     val setsCount = weeklyLogs.count { log ->
                         val matched = defaultExercises.find { it.name.equals(log.exerciseName, ignoreCase = true) }
@@ -121,70 +119,52 @@ class AnalyticsViewModel(application: Application) : AndroidViewModel(applicatio
                     MuscleVolumeStat(muscleGroup = mg, completedSets = setsCount)
                 }
 
-                _uiState.update { current ->
-                    val defaultEx = if (exercises.contains(current.selectedExercise)) {
-                        current.selectedExercise
-                    } else {
-                        exercises.firstOrNull() ?: "Flat Barbell Bench Press"
-                    }
-                    current.copy(
-                        strengthCurveExercises = exercises,
-                        selectedExercise = defaultEx,
-                        totalVolumePast30Days = totalVol,
-                        muscleVolumes = volumeStats
-                    )
+                val currentSel = _uiState.value.selectedExercise
+                val selectedEx = if (currentSel.isNotBlank() && exercises.contains(currentSel)) {
+                    currentSel
+                } else {
+                    exercises.firstOrNull() ?: ""
                 }
-                updateExerciseCurve(_uiState.value.selectedExercise, logs)
+                val (history, pb) = computeExerciseCurve(selectedEx, workoutLogs)
+
+                AnalyticsUiState(
+                    isLoading = false,
+                    userProfile = user,
+                    weeklyStats = stats,
+                    proteinHitRatePercentage = hitRate,
+                    totalVolumePast30Days = totalVol,
+                    weightLogs = weights,
+                    currentWeight = latestWeight,
+                    strengthCurveExercises = exercises,
+                    selectedExercise = selectedEx,
+                    exerciseHistory = history,
+                    personalBest = pb,
+                    muscleVolumes = volumeStats
+                )
             }
+                .flowOn(Dispatchers.Default)
+                .collect { newState ->
+                    _uiState.value = newState
+                }
         }
     }
 
-    private fun calculateWeeklyNutrition(logs: List<FoodLog>) {
-        val targetCal = _uiState.value.userProfile.dailyCalorieTarget.coerceAtLeast(1500)
-        val targetPro = _uiState.value.userProfile.dailyProteinTarget.coerceAtLeast(100)
-
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val dayNameFormat = SimpleDateFormat("EEE", Locale.getDefault())
-
-        val stats = mutableListOf<DailyCalorieStat>()
-        val cal = Calendar.getInstance()
-        cal.add(Calendar.DAY_OF_YEAR, -6)
-
-        var hitDays = 0
-
-        for (i in 0..6) {
-            val dateStr = dateFormat.format(cal.time)
-            val dayName = dayNameFormat.format(cal.time)
-
-            val logsForDay = logs.filter { it.date == dateStr }
-            val totalCal = logsForDay.sumOf { it.totalCalories }
-            val totalPro = logsForDay.sumOf { it.totalProtein }
-
-            if (totalPro >= targetPro * 0.9) {
-                hitDays++
+    private fun computeExerciseCurve(exerciseName: String, logs: List<WorkoutLog>): Pair<List<StrengthPoint>, Double> {
+        if (exerciseName.isBlank()) return emptyList<StrengthPoint>() to 0.0
+        val filtered = logs.filter { it.exerciseName.equals(exerciseName, ignoreCase = true) }
+        val groupedByDate = filtered.groupBy { it.date }
+        val points = groupedByDate.map { (date, dayLogs) ->
+            val maxWeight = dayLogs.maxOfOrNull { it.weight } ?: 0.0
+            val bestSet = dayLogs.maxByOrNull { it.weight * (1 + it.reps / 30.0) }
+            val est1RM = if (bestSet != null && bestSet.reps > 1) {
+                bestSet.weight * (1 + bestSet.reps / 30.0)
+            } else {
+                maxWeight
             }
-
-            stats.add(
-                DailyCalorieStat(
-                    date = dateStr,
-                    dayLabel = dayName,
-                    calories = totalCal,
-                    protein = totalPro,
-                    targetCalories = targetCal,
-                    targetProtein = targetPro
-                )
-            )
-            cal.add(Calendar.DAY_OF_YEAR, 1)
-        }
-
-        val hitRate = ((hitDays.toDouble() / 7.0) * 100).toInt()
-
-        _uiState.update {
-            it.copy(
-                weeklyStats = stats,
-                proteinHitRatePercentage = hitRate
-            )
-        }
+            StrengthPoint(date, maxWeight, est1RM)
+        }.sortedBy { it.date }
+        val pb = filtered.maxOfOrNull { it.weight } ?: 0.0
+        return points to pb
     }
 
     fun selectExerciseForCurve(exerciseName: String) {
