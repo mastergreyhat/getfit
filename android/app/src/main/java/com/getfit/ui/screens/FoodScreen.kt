@@ -276,6 +276,7 @@ fun FoodScreen(
 
     Scaffold(
         containerColor = GetFitTheme.colors.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = {
             SnackbarHost(
                 hostState = snackbarHostState,
@@ -312,23 +313,26 @@ fun FoodScreen(
                     containerColor = GetFitTheme.colors.accent,
                     contentColor = GetFitTheme.colors.onAccent,
                     shape = CircleShape,
-                    modifier = Modifier.gfBottomBarPadding()
+                    modifier = Modifier.padding(bottom = 52.dp).navigationBarsPadding()
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Custom Food")
                 }
             }
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
             // Pinned Segmented Control
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Dimens.screenGutter, vertical = Dimens.sm)
+                    .padding(start = Dimens.screenGutter, end = Dimens.screenGutter, top = Dimens.xs, bottom = Dimens.sm)
             ) {
                 GfSegmentedControl(
                     items = tabs,
@@ -408,6 +412,10 @@ fun FoodScreen(
                     onNavigateToAuth = onNavigateToAuth
                 )
             }
+            }
+            com.getfit.ui.components.core.GfBottomFade(
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
         }
     }
 }
@@ -479,14 +487,13 @@ private fun MyFitnessPalDiaryTabContent(
             top = Dimens.xs,
             bottom = com.getfit.ui.components.core.gfBottomBarContentPadding() + Dimens.xl
         ),
-        verticalArrangement = Arrangement.spacedBy(Dimens.xxl)
+        verticalArrangement = Arrangement.spacedBy(Dimens.md)
     ) {
         // 1. Date Navigation Bar: compact centered row with chevrons, date in titleMedium, no surrounding box
         item(key = "diary_date_nav") {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = Dimens.xs),
+                    .fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -540,19 +547,22 @@ private fun MyFitnessPalDiaryTabContent(
             }
         }
 
-        // 2. Calories Hero Card: GfHeroCard with GfOverline, GfBigNumber hero = true (52sp), 3-col equation, and MacroStat row
+        // 2. Calories Hero Card: compact GfHeroCard with adaptive displayMedium, 3-col equation, and MacroStat row
         item(key = "diary_calorie_hero") {
-            GfHeroCard(modifier = Modifier.fillMaxWidth()) {
+            GfHeroCard(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(Dimens.lg)
+            ) {
                 GfOverline(text = "CALORIES REMAINING")
-                Spacer(modifier = Modifier.height(Dimens.sm))
+                Spacer(modifier = Modifier.height(Dimens.xs))
                 GfBigNumber(
                     value = heroNumber,
                     unit = heroLabel,
                     hero = true,
                     color = heroColor,
-                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 52.sp, lineHeight = 56.sp)
+                    style = MaterialTheme.typography.displayMedium
                 )
-                Spacer(modifier = Modifier.height(Dimens.lg))
+                Spacer(modifier = Modifier.height(Dimens.md))
 
                 // Quiet three-column row: Goal, Food, Remaining/Over
                 Row(
@@ -611,14 +621,14 @@ private fun MyFitnessPalDiaryTabContent(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(Dimens.lg))
+                Spacer(modifier = Modifier.height(Dimens.md))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
                         .background(GetFitTheme.colors.hairline)
                 )
-                Spacer(modifier = Modifier.height(Dimens.lg))
+                Spacer(modifier = Modifier.height(Dimens.md))
 
                 // Shared MacroStat row (Protein, Carbs, Fat)
                 val proteinTarget = uiState.userProfile.dailyProteinTarget.toFloat().coerceAtLeast(100f)
@@ -723,7 +733,7 @@ private fun MyFitnessPalDiaryTabContent(
                             )
                             Text(
                                 text = "$mealCals kcal",
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = GetFitTheme.colors.textSecondary
                             )
                         }
@@ -739,7 +749,7 @@ private fun MyFitnessPalDiaryTabContent(
                             )
                             Box(
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .size(32.dp)
                                     .pressable(onClick = { onAddFoodClick(mealType) })
                                     .clip(CircleShape)
                                     .background(GetFitTheme.colors.accent),
@@ -749,7 +759,7 @@ private fun MyFitnessPalDiaryTabContent(
                                     imageVector = Icons.Default.Add,
                                     contentDescription = "Add food to $mealType",
                                     tint = GetFitTheme.colors.onAccent,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         }
@@ -785,7 +795,7 @@ private fun MyFitnessPalDiaryTabContent(
                                 ) {
                                     Text(
                                         text = log.foodName,
-                                        style = MaterialTheme.typography.titleMedium,
+                                        style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.SemiBold,
                                         color = GetFitTheme.colors.textPrimary
                                     )
@@ -845,37 +855,22 @@ private fun MyFitnessPalDiaryTabContent(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FitnessCenter,
-                            contentDescription = null,
-                            tint = if (groupedWorkouts.isNotEmpty()) GetFitTheme.colors.success else GetFitTheme.colors.accent,
-                            modifier = Modifier.size(20.dp)
+                    Column {
+                        Text(
+                            text = "Exercise & Training",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GetFitTheme.colors.textPrimary
                         )
-                        Column {
-                            Text(
-                                text = "Exercise & Training",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = GetFitTheme.colors.textPrimary
-                            )
-                            Text(
-                                text = if (groupedWorkouts.isNotEmpty()) {
-                                    "${groupedWorkouts.size} exercises • ${workoutLogs.size} sets completed"
-                                } else {
-                                    "No workouts logged for this day"
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = GetFitTheme.colors.textSecondary
-                            )
-                        }
-                    }
-
-                    if (groupedWorkouts.isNotEmpty()) {
-                        GfStatusPill(text = "Trained")
+                        Text(
+                            text = if (groupedWorkouts.isNotEmpty()) {
+                                "${groupedWorkouts.size} exercises • ${workoutLogs.size} sets completed"
+                            } else {
+                                "No workouts logged for this day"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GetFitTheme.colors.textSecondary
+                        )
                     }
                 }
 
@@ -888,51 +883,48 @@ private fun MyFitnessPalDiaryTabContent(
                     )
                 } else {
                     groupedWorkouts.forEach { (exName, sets) ->
-                        Spacer(modifier = Modifier.height(Dimens.md))
+                        Spacer(modifier = Modifier.height(Dimens.sm))
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(0.5.dp)
                                 .background(GetFitTheme.colors.hairline)
                         )
-                        Spacer(modifier = Modifier.height(Dimens.md))
+                        Spacer(modifier = Modifier.height(Dimens.sm))
+
+                        val setSummary = remember(sets) {
+                            val allSameWeight = sets.all { it.weight == sets.first().weight }
+                            val allSameReps = sets.all { it.reps == sets.first().reps }
+                            fun fmtW(w: Double) = if (w % 1.0 == 0.0) "${w.toInt()}" else "$w"
+                            if (allSameWeight && allSameReps && sets.isNotEmpty()) {
+                                "${sets.size}×${fmtW(sets.first().weight)}kg · ${sets.first().reps} reps"
+                            } else {
+                                val maxWeight = sets.maxOfOrNull { it.weight } ?: 0.0
+                                "${sets.size} sets · Top ${fmtW(maxWeight)}kg"
+                            }
+                        }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = Dimens.sm)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
-                                ) {
-                                    GfCheckBadge(checked = true, size = 18.dp)
-                                    Text(
-                                        text = exName,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = GetFitTheme.colors.textPrimary
-                                    )
-                                }
-                                val setSummaries = remember(sets) {
-                                    val allSameWeight = sets.all { it.weight == sets.first().weight }
-                                    val allSameReps = sets.all { it.reps == sets.first().reps }
-                                    if (allSameWeight && allSameReps && sets.isNotEmpty()) {
-                                        "${sets.size} sets × ${sets.first().weight}kg (${sets.first().reps} reps)"
-                                    } else {
-                                        val maxWeight = sets.maxOfOrNull { it.weight } ?: 0.0
-                                        "${sets.size} sets • Top ${maxWeight}kg"
-                                    }
-                                }
-                                Text(
-                                    text = setSummaries,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = GetFitTheme.colors.textSecondary
-                                )
-                            }
-
-                            GfStatusPill(text = "${sets.size} sets")
+                            Text(
+                                text = exName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = GetFitTheme.colors.textPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f).padding(end = Dimens.sm)
+                            )
+                            Text(
+                                text = setSummary,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GetFitTheme.colors.textSecondary,
+                                maxLines = 1,
+                                softWrap = false
+                            )
                         }
                     }
                 }
@@ -949,6 +941,7 @@ private fun MyFitnessPalDiaryTabContent(
             GfCard(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .clip(RoundedCornerShape(Dimens.xxl))
                     .combinedClickable(
                         onClick = {},
                         onLongClick = {
@@ -1442,29 +1435,7 @@ private fun MealPlanTabContent(
             item(key = "pantry_input_card") {
                 GfCard(modifier = Modifier.fillMaxWidth()) {
                     Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            GfOverline(text = "WHAT'S IN YOUR KITCHEN?")
-                            Box(
-                                modifier = Modifier
-                                    .clip(CircleShape)
-                                    .background(GetFitTheme.colors.surface3)
-                                    .border(1.dp, GetFitTheme.colors.hairline, CircleShape)
-                                    .padding(horizontal = Dimens.md, vertical = Dimens.xs)
-                            ) {
-                                Text(
-                                    text = "${uiState.userProfile.goal.ifBlank { "Goal" }} · ${uiState.userProfile.dailyCalorieTarget} kcal",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = GetFitTheme.colors.textSecondary,
-                                    maxLines = 1,
-                                    softWrap = false
-                                )
-                            }
-                        }
+                        GfOverline(text = "WHAT'S IN YOUR KITCHEN?")
 
                         GfTextField(
                             value = uiState.pantryInput,
@@ -1474,6 +1445,7 @@ private fun MealPlanTabContent(
                             maxLines = 4,
                             singleLine = false,
                             imeAction = ImeAction.Done,
+                            unfocusedBorderColor = GetFitTheme.colors.accent.copy(alpha = 0.7f),
                             modifier = Modifier.fillMaxWidth()
                         )
 

@@ -236,7 +236,8 @@ fun GfTextField(
     singleLine: Boolean = maxLines == 1,
     keyboardOptions: KeyboardOptions = KeyboardOptions(imeAction = imeAction),
     keyboardActions: KeyboardActions? = null,
-    visualTransformation: VisualTransformation = VisualTransformation.None
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    unfocusedBorderColor: Color = Color.Transparent
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
@@ -270,7 +271,7 @@ fun GfTextField(
             targetValue = when {
                 isError -> GetFitTheme.colors.danger
                 isFocused -> GetFitTheme.colors.accent
-                else -> Color.Transparent
+                else -> unfocusedBorderColor
             },
             animationSpec = tween(durationMillis = 200),
             label = "textfield_border"

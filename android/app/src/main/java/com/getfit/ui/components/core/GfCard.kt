@@ -29,7 +29,7 @@ fun GfCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     cornerRadius: Dp = Dimens.xxl, // 24dp
-    contentPadding: PaddingValues = PaddingValues(Dimens.xl), // 20dp
+    contentPadding: PaddingValues = PaddingValues(horizontal = Dimens.xl, vertical = Dimens.lg), // 20dp H, 16dp V
     useGradient: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {

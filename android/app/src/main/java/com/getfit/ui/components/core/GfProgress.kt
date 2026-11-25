@@ -146,12 +146,21 @@ fun MacroStat(
     modifier: Modifier = Modifier,
     inlineHeader: Boolean = false
 ) {
-    val isOver = current > target
+    val currentInt = current.toInt()
+    val targetInt = target.toInt()
+    val overAmt = currentInt - targetInt
+    val isOver = overAmt > 0
+    val isMet = overAmt == 0 && targetInt > 0
     val progress = if (target > 0f) (current / target).coerceIn(0f, 1f) else 0f
+    val valueColor = when {
+        isOver -> GetFitTheme.colors.warning
+        isMet -> GetFitTheme.colors.success
+        else -> GetFitTheme.colors.textPrimary
+    }
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(if (inlineHeader) Dimens.xs else Dimens.xs)
+        verticalArrangement = Arrangement.spacedBy(Dimens.xs)
     ) {
         if (inlineHeader) {
             Row(
@@ -159,55 +168,50 @@ fun MacroStat(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
-                    modifier = Modifier.weight(1f, fill = false)
-                ) {
-                    GfOverline(text = label)
-                    if (isOver) {
-                        Text(
-                            text = "(+${(current - target).toInt()}g)",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = GetFitTheme.colors.warning,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                }
+                // weight(1f) gives the label room; value never squeezes it
+                Text(
+                    text = label.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = GetFitTheme.colors.textTertiary,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
                 Spacer(modifier = Modifier.width(Dimens.xs))
                 Text(
-                    text = "${current.toInt()}g of ${target.toInt()}g",
-                    style = MaterialTheme.typography.labelSmall,
+                    text = if (isOver) "+${overAmt}g" else "${currentInt}/${targetInt}g",
+                    style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isOver) GetFitTheme.colors.warning else GetFitTheme.colors.textPrimary,
+                    color = valueColor,
                     maxLines = 1,
-                    softWrap = false,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    softWrap = false
                 )
             }
         } else {
             GfOverline(text = label)
             Text(
-                text = "${current.toInt()}g",
+                text = "${currentInt}g",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = if (isOver) GetFitTheme.colors.warning else GetFitTheme.colors.textPrimary
+                color = valueColor
             )
             Text(
-                text = if (isOver) {
-                    "+${(current - target).toInt()}g over"
-                } else {
-                    "of ${target.toInt()}g"
+                text = when {
+                    isOver -> "+${overAmt}g over"
+                    isMet -> "Goal met"
+                    else -> "of ${targetInt}g"
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = if (isOver) GetFitTheme.colors.warning else GetFitTheme.colors.textSecondary
+                color = when {
+                    isOver -> GetFitTheme.colors.warning
+                    isMet -> GetFitTheme.colors.success
+                    else -> GetFitTheme.colors.textSecondary
+                }
             )
             Spacer(modifier = Modifier.height(2.dp))
         }
         GfProgressBar(
-            progress = if (isOver) 1f else progress,
+            progress = if (isOver || isMet) 1f else progress,
             color = color
         )
     }

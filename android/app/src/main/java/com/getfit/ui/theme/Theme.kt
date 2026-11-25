@@ -10,7 +10,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
@@ -56,6 +60,15 @@ object GetFitTheme {
         get() = Dimens
 }
 
+private fun TextStyle.scaled(factor: Float, minSp: Float = 10f): TextStyle {
+    if (factor >= 0.999f) return this
+    val newSize = (fontSize.value * factor).coerceAtLeast(minSp).sp
+    val newLineHeight = if (lineHeight != TextUnit.Unspecified) {
+        (lineHeight.value * factor).coerceAtLeast(newSize.value + 2f).sp
+    } else lineHeight
+    return copy(fontSize = newSize, lineHeight = newLineHeight)
+}
+
 @Composable
 fun GetFitTheme(
     content: @Composable () -> Unit
@@ -76,10 +89,31 @@ fun GetFitTheme(
         }
     }
 
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    // Scale down typography on compact screens (e.g. 360dp S25) so headlines/cards fit without wrapping
+    val fontScale = (screenWidthDp / 425f).coerceIn(0.86f, 1.0f)
+    val adaptiveTypography = Typography.copy(
+        displayLarge = Typography.displayLarge.scaled(fontScale),
+        displayMedium = Typography.displayMedium.scaled(fontScale),
+        displaySmall = Typography.displaySmall.scaled(fontScale),
+        headlineLarge = Typography.headlineLarge.scaled(fontScale),
+        headlineMedium = Typography.headlineMedium.scaled(fontScale),
+        headlineSmall = Typography.headlineSmall.scaled(fontScale),
+        titleLarge = Typography.titleLarge.scaled(fontScale),
+        titleMedium = Typography.titleMedium.scaled(fontScale),
+        titleSmall = Typography.titleSmall.scaled(fontScale),
+        bodyLarge = Typography.bodyLarge.scaled(fontScale),
+        bodyMedium = Typography.bodyMedium.scaled(fontScale),
+        bodySmall = Typography.bodySmall.scaled(fontScale),
+        labelLarge = Typography.labelLarge.scaled(fontScale),
+        labelMedium = Typography.labelMedium.scaled(fontScale),
+        labelSmall = Typography.labelSmall.scaled(fontScale)
+    )
+
     CompositionLocalProvider(LocalGetFitColors provides DarkGetFitColors) {
         MaterialTheme(
             colorScheme = DarkColorScheme,
-            typography = Typography,
+            typography = adaptiveTypography,
             shapes = Shapes,
             content = content
         )

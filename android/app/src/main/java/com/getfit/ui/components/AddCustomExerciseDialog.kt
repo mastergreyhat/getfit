@@ -246,28 +246,6 @@ fun AddCustomExerciseDialog(
                     }
                 }
 
-                // Movement Type (Compound vs Isolation)
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "MOVEMENT TYPE",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = isCompound,
-                            onClick = { isCompound = true },
-                            label = { Text("Compound") }
-                        )
-                        FilterChip(
-                            selected = !isCompound,
-                            onClick = { isCompound = false },
-                            label = { Text("Isolation") }
-                        )
-                    }
-                }
-
                 // Description / Notes
                 OutlinedTextField(
                     value = description,

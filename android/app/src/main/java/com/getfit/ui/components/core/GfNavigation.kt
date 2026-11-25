@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.composed
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -56,6 +57,27 @@ fun Modifier.gfBottomBarPadding(): Modifier = composed {
 }
 
 /**
+ * 140dp bottom fade scrim placed behind [GfBottomBar] (and behind screen FABs when used inside a Scaffold).
+ */
+@Composable
+fun GfBottomFade(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(140.dp)
+            .background(
+                Brush.verticalGradient(
+                    0.0f to Color.Transparent,
+                    0.25f to GetFitTheme.colors.background.copy(alpha = 0.25f),
+                    0.48f to GetFitTheme.colors.background.copy(alpha = 0.75f),
+                    0.66f to GetFitTheme.colors.background,
+                    1.0f to GetFitTheme.colors.background
+                )
+            )
+    )
+}
+
+/**
  * Bottom navigation item model.
  */
 data class GfBottomNavItem(
@@ -81,10 +103,10 @@ fun GfBottomBar(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = Dimens.lg, vertical = Dimens.sm)
+            .padding(horizontal = Dimens.xxl, vertical = Dimens.sm)
             .navigationBarsPadding(),
         shape = RoundedCornerShape(32.dp),
-        color = GetFitTheme.colors.surface1.copy(alpha = 0.92f),
+        color = GetFitTheme.colors.surface1,
         border = BorderStroke(1.dp, GetFitTheme.colors.hairline),
         shadowElevation = 0.dp
     ) {
@@ -92,7 +114,7 @@ fun GfBottomBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(Dimens.xs),
-            horizontalArrangement = Arrangement.SpaceAround,
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             items.forEachIndexed { index, item ->

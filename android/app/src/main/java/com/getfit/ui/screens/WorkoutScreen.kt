@@ -536,6 +536,7 @@ fun WorkoutScreen(
 
     Scaffold(
         containerColor = GetFitTheme.colors.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = {
             AnimatedVisibility(
                 visible = showFeedbackSnackbar,
@@ -574,23 +575,26 @@ fun WorkoutScreen(
                     containerColor = GetFitTheme.colors.accent,
                     contentColor = GetFitTheme.colors.onAccent,
                     shape = CircleShape,
-                    modifier = Modifier.gfBottomBarPadding()
+                    modifier = Modifier.padding(bottom = 52.dp).navigationBarsPadding()
                 ) {
                     Icon(Icons.Default.Timer, contentDescription = "Stopwatch")
                 }
             }
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
             // Pinned Segmented Control
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Dimens.screenGutter, vertical = Dimens.sm)
+                    .padding(start = Dimens.screenGutter, end = Dimens.screenGutter, top = Dimens.xs, bottom = Dimens.sm)
             ) {
                 GfSegmentedControl(
                     items = tabs,
@@ -656,6 +660,10 @@ fun WorkoutScreen(
                     onDeleteStopwatchRecord = viewModel::deleteStopwatchRecord
                 )
             }
+            }
+            com.getfit.ui.components.core.GfBottomFade(
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
         }
     }
 }

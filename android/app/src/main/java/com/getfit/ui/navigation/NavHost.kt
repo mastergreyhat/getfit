@@ -136,15 +136,14 @@ fun GetFitNavHost(
 
     // Check if bottom bar should be visible
     val isBottomBarVisible = remember(currentRoute) { bottomNavItems.any { it.route == currentRoute } }
-    var isDashboardScrolled by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
+        containerColor = GetFitTheme.colors.background,
         topBar = {
             if (isBottomBarVisible) {
                 CleanTopHeader(
                     currentRoute = currentRoute,
-                    isScrolled = isDashboardScrolled,
                     onNavigateToAnalytics = {
                         navController.navigate(Screen.Analytics.route)
                     }
@@ -228,7 +227,6 @@ fun GetFitNavHost(
             composable(Screen.Dashboard.route) {
                 DashboardScreen(
                     viewModel = dashboardViewModel,
-                    onScrollChanged = { isDashboardScrolled = it },
                     onNavigateToFood = {
                         foodViewModel.resetToDiary()
                         navController.navigate(Screen.Food.route) {
@@ -358,22 +356,12 @@ fun GetFitNavHost(
         }
 
         if (isBottomBarVisible) {
-            // Non-interactive gradient fade: transparent to background, ~140dp tall, extending behind navigation bar inset
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(140.dp)
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                GetFitTheme.colors.background.copy(alpha = 0.85f),
-                                GetFitTheme.colors.background
-                            )
-                        )
-                    )
-            )
+            if (currentRoute != Screen.Food.route && currentRoute != Screen.Workout.route) {
+                // Non-interactive gradient fade: transparent to background, 140dp tall; Food/Workout render it below their FABs
+                com.getfit.ui.components.core.GfBottomFade(
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
+            }
 
             val selectedIndex = bottomNavItems.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
             GfBottomBar(
@@ -435,7 +423,6 @@ fun GetFitNavHost(
 @Composable
 private fun CleanTopHeader(
     currentRoute: String?,
-    isScrolled: Boolean = false,
     onNavigateToAnalytics: () -> Unit
 ) {
     val isHome = currentRoute == Screen.Dashboard.route || currentRoute == null
@@ -450,62 +437,53 @@ private fun CleanTopHeader(
         color = GetFitTheme.colors.background,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp)
-                    .padding(horizontal = Dimens.screenGutter),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (isHome) {
-                    GfBrandLogo(
-                        iconSize = 30.dp,
-                        textStyle = MaterialTheme.typography.titleLarge
-                    )
-                } else {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = GetFitTheme.colors.textPrimary
-                    )
-                }
+        Row(
+            modifier = Modifier
+                .statusBarsPadding()
+                .fillMaxWidth()
+                .height(52.dp)
+                .padding(horizontal = Dimens.screenGutter),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isHome) {
+                GfBrandLogo(
+                    iconSize = 30.dp,
+                    textStyle = MaterialTheme.typography.titleLarge
+                )
+            } else {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = GetFitTheme.colors.textPrimary
+                )
+            }
 
-                Box(
-                    modifier = Modifier
-                        .minimumInteractiveComponentSize()
-                        .pressable(onClick = onNavigateToAnalytics),
-                    contentAlignment = Alignment.Center
+            Box(
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .pressable(onClick = onNavigateToAnalytics),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = CircleShape,
+                    color = GetFitTheme.colors.surface1,
+                    border = BorderStroke(1.dp, GetFitTheme.colors.hairline)
                 ) {
-                    Surface(
-                        modifier = Modifier.size(40.dp),
-                        shape = CircleShape,
-                        color = GetFitTheme.colors.surface1,
-                        border = BorderStroke(1.dp, GetFitTheme.colors.hairline)
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.TrendingUp,
-                                contentDescription = "Analytics",
-                                tint = GetFitTheme.colors.textSecondary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.TrendingUp,
+                            contentDescription = "Analytics",
+                            tint = GetFitTheme.colors.textSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
-            }
-            if (!isHome || isScrolled) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(GetFitTheme.colors.hairline)
-                )
             }
         }
     }
@@ -515,6 +493,6 @@ private fun CleanTopHeader(
 @Composable
 private fun CleanTopHeaderDarkPreview() {
     GetFitTheme {
-        CleanTopHeader(currentRoute = Screen.Dashboard.route, isScrolled = false, onNavigateToAnalytics = {})
+        CleanTopHeader(currentRoute = Screen.Dashboard.route, onNavigateToAnalytics = {})
     }
 }

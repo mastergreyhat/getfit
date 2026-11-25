@@ -118,7 +118,7 @@ fun DashboardScreen(
             .fillMaxSize()
             .background(GetFitTheme.colors.background)
             .verticalScroll(scrollState)
-            .padding(horizontal = Dimens.screenGutter, vertical = Dimens.xl),
+            .padding(start = Dimens.screenGutter, end = Dimens.screenGutter, top = Dimens.sm, bottom = Dimens.xl),
         verticalArrangement = Arrangement.spacedBy(Dimens.xxl)
     ) {
         // ==========================================
@@ -185,22 +185,23 @@ fun DashboardScreen(
 
             Spacer(modifier = Modifier.height(Dimens.md))
 
-            // Balanced Hero: Macros vertically centered against the Ring itself, chunky ring text
+            // Balanced Hero: fixed-size true-circle Ring on left, flexible Macros on right
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Dimens.xs, vertical = Dimens.xs),
-                horizontalArrangement = Arrangement.spacedBy(Dimens.xl),
+                    .padding(vertical = Dimens.xs),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.md),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier.weight(1f),
-                    contentAlignment = Alignment.Center
+                Column(
+                    modifier = Modifier.width(138.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(Dimens.xs)
                 ) {
                     GfRing(
                         progress = calProgress,
-                        size = 168.dp,
-                        strokeWidth = 12.dp,
+                        size = 138.dp,
+                        strokeWidth = 11.dp,
                         overGoal = isOverGoal
                     ) {
                         Column(
@@ -212,26 +213,32 @@ fun DashboardScreen(
                                 hero = true,
                                 color = if (isOverGoal) GetFitTheme.colors.warning else GetFitTheme.colors.textPrimary,
                                 style = MaterialTheme.typography.displayLarge.copy(
-                                    fontSize = 46.sp,
-                                    lineHeight = 50.sp,
+                                    fontSize = 40.sp,
+                                    lineHeight = 44.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             )
                             Text(
                                 text = if (isOverGoal) "kcal over" else "kcal left",
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = if (isOverGoal) GetFitTheme.colors.warning else GetFitTheme.colors.textSecondary,
                                 maxLines = 1,
                                 softWrap = false
                             )
                         }
                     }
+                    Text(
+                        text = "${caloriesConsumed.toInt()} / ${calorieTarget.toInt()} kcal",
+                        style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+                        color = GetFitTheme.colors.textSecondary,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
 
                 Column(
-                    modifier = Modifier
-                        .weight(0.95f)
-                        .padding(end = Dimens.xs),
+                    modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(Dimens.lg)
                 ) {
                     val proteinTarget = uiState.userProfile.dailyProteinTarget.toFloat().coerceAtLeast(100f)
@@ -263,27 +270,6 @@ fun DashboardScreen(
                         inlineHeader = true
                     )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(Dimens.xs))
-
-            // Eaten / goal caption centered cleanly under the ring without shifting macro alignment
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Dimens.xs),
-                horizontalArrangement = Arrangement.spacedBy(Dimens.xl)
-            ) {
-                Text(
-                    text = "${caloriesConsumed.toInt()} / ${calorieTarget.toInt()} kcal",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = GetFitTheme.colors.textSecondary,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    softWrap = false,
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(modifier = Modifier.weight(0.95f))
             }
         }
 

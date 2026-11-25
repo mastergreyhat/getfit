@@ -200,6 +200,7 @@ fun ProfileScreen(
 
     Scaffold(
         containerColor = GetFitTheme.colors.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = {
             AnimatedVisibility(
                 visible = showSavedSnackbar,
@@ -244,7 +245,7 @@ fun ProfileScreen(
                 .padding(paddingValues)
                 .background(GetFitTheme.colors.background)
                 .verticalScroll(profileScrollState)
-                .padding(horizontal = Dimens.screenGutter, vertical = Dimens.md),
+                .padding(start = Dimens.screenGutter, end = Dimens.screenGutter, top = Dimens.sm, bottom = Dimens.md),
             verticalArrangement = Arrangement.spacedBy(Dimens.lg)
         ) {
             // Header Profile Card
@@ -291,10 +292,10 @@ fun ProfileScreen(
                             softWrap = false,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
+                        FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
-                            modifier = Modifier.padding(top = 2.dp)
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(top = 4.dp)
                         ) {
                             Surface(
                                 shape = RoundedCornerShape(Dimens.xs),
@@ -331,6 +332,8 @@ fun ProfileScreen(
                                             text = "Synced",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            softWrap = false,
                                             color = GetFitTheme.colors.accent
                                         )
                                     }
@@ -353,9 +356,11 @@ fun ProfileScreen(
                                             modifier = Modifier.size(10.dp)
                                         )
                                         Text(
-                                            text = "Cloud Sync",
+                                            text = "Sync",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                            softWrap = false,
                                             color = GetFitTheme.colors.textSecondary
                                         )
                                     }

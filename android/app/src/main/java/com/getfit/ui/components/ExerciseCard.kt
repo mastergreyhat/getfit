@@ -67,24 +67,15 @@ fun ExerciseCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = exercise.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        if (isCompleted) {
-                            GfCheckBadge(checked = true, size = 18.dp)
-                        }
-                    }
+                    Text(
+                        text = exercise.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                     Text(
                         text = "${exercise.muscleGroup} • ${exercise.equipment}",
                         style = MaterialTheme.typography.bodySmall,
@@ -115,21 +106,8 @@ fun ExerciseCard(
                             )
                         }
                     }
-
-                    // Compound vs Isolation badge (uniform GetFitTheme tokens)
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = GetFitTheme.colors.surface2
-                    ) {
-                        Text(
-                            text = if (exercise.isCompound) "Compound" else "Isolation",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            softWrap = false,
-                            color = GetFitTheme.colors.textPrimary
-                        )
+                    if (isCompleted) {
+                        GfCheckBadge(checked = true, size = 20.dp)
                     }
                 }
             }
