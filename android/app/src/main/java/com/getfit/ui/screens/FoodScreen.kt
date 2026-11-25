@@ -28,26 +28,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Cookie
-import androidx.compose.material.icons.rounded.DinnerDining
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.LunchDining
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.WbSunny
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -426,8 +409,7 @@ fun FoodScreen(
                             showSnackbar = true
                         }
                     },
-                    onNavigateToAuth = onNavigateToAuth,
-                    onUseHistoryPlan = viewModel::loadHistoryPlan
+                    onNavigateToAuth = onNavigateToAuth
                 )
             }
         }
@@ -1323,7 +1305,6 @@ private fun isGeneratedMealLogged(
 /**
  * Tab 2: AI Pantry-to-Meal-Plan Generator (Logged-in users only)
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MealPlanTabContent(
     uiState: FoodUiState,
@@ -1331,62 +1312,14 @@ private fun MealPlanTabContent(
     onGenerateMealPlan: () -> Unit,
     onLogGeneratedMeal: (GeminiNutritionService.GeneratedMeal) -> Unit,
     onLogAllGeneratedMeals: (List<GeminiNutritionService.GeneratedMeal>) -> Unit,
-    onNavigateToAuth: () -> Unit,
-    onUseHistoryPlan: (com.getfit.ui.viewmodel.MealPlanHistoryEntry) -> Unit = {},
-    previewLoggedOverride: Boolean? = null
+    onNavigateToAuth: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val isLoggedIn = remember(uiState.userProfile, previewLoggedOverride) {
-        previewLoggedOverride ?: AuthPreferences.isLoggedIn(context)
-    }
+    val isLoggedIn = remember(uiState.userProfile) { AuthPreferences.isLoggedIn(context) }
     var duplicateMealToConfirm by remember { mutableStateOf<GeminiNutritionService.GeneratedMeal?>(null) }
     var pendingBulkLogMeals by remember { mutableStateOf<List<GeminiNutritionService.GeneratedMeal>?>(null) }
     var expandedHistoryId by remember { mutableStateOf<String?>(null) }
-    var draftIngredient by remember { mutableStateOf("") }
-    var summaryExpanded by remember { mutableStateOf(false) }
     val historyDateFormat = remember { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()) }
-
-    val ingredients = remember(uiState.pantryInput) {
-        uiState.pantryInput.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-    }
-    val suggestionPool = remember {
-        listOf("Eggs", "Rice", "Chicken", "Paneer", "Oats", "Dal", "Milk", "Banana")
-    }
-    val availableSuggestions = remember(ingredients) {
-        val lower = ingredients.map { it.lowercase() }.toSet()
-        suggestionPool.filter { it.lowercase() !in lower }
-    }
-
-    val plan = uiState.generatedMealPlan
-    val loggedMealKeys = remember(plan, uiState.todayLogs) {
-        if (plan == null) emptySet()
-        else plan.meals.filter { isGeneratedMealLogged(it, uiState.todayLogs) }
-            .map { "${it.mealType}_${it.title}" }.toSet()
-    }
-    // Stagger only when a newly generated plan arrives (not on tab switches or scroll)
-    var lastAnimatedPlanHash by rememberSaveable { mutableStateOf<Int?>(null) }
-    val shouldStaggerPlan = remember(plan) {
-        val h = plan?.hashCode()
-        if (h != null && lastAnimatedPlanHash != h) {
-            lastAnimatedPlanHash = h
-            true
-        } else {
-            false
-        }
-    }
-
-    fun addIngredient(raw: String) {
-        val cleaned = raw.trim().trimEnd(',')
-        if (cleaned.isEmpty()) return
-        if (ingredients.any { it.equals(cleaned, ignoreCase = true) }) return
-        val updated = (ingredients + cleaned).joinToString(", ")
-        onPantryInputChange(updated)
-    }
-
-    fun removeIngredient(item: String) {
-        val updated = ingredients.filterNot { it.equals(item, ignoreCase = true) }.joinToString(", ")
-        onPantryInputChange(updated)
-    }
 
     duplicateMealToConfirm?.let { meal ->
         AlertDialog(
@@ -1456,10 +1389,10 @@ private fun MealPlanTabContent(
             top = Dimens.sm,
             bottom = com.getfit.ui.components.core.gfBottomBarContentPadding() + Dimens.xl
         ),
-        verticalArrangement = Arrangement.spacedBy(Dimens.lg)
+        verticalArrangement = Arrangement.spacedBy(Dimens.xxl)
     ) {
         if (!isLoggedIn) {
-            item(key = "meal_plan_locked", contentType = "locked") {
+            item(key = "meal_plan_locked") {
                 GfCard(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         modifier = Modifier
@@ -1503,352 +1436,139 @@ private fun MealPlanTabContent(
                 }
             }
         } else {
-            // B1. KITCHEN INPUT CARD
-            item(key = "pantry_input_card", contentType = "kitchen") {
+            item(key = "pantry_input_card") {
                 GfCard(modifier = Modifier.fillMaxWidth()) {
                     Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
                         GfOverline(text = "WHAT'S IN YOUR KITCHEN?")
 
-                        if (ingredients.isNotEmpty()) {
-                            FlowRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
-                                verticalArrangement = Arrangement.spacedBy(Dimens.xs)
-                            ) {
-                                ingredients.forEach { ing ->
-                                    GfChip(
-                                        text = ing,
-                                        selected = true,
-                                        leadingIcon = Icons.Rounded.Close,
-                                        onClick = { removeIngredient(ing) }
-                                    )
-                                }
-                            }
-                        }
-
                         GfTextField(
-                            value = draftIngredient,
-                            onValueChange = { typed ->
-                                if (typed.contains(",")) {
-                                    val parts = typed.split(",")
-                                    parts.dropLast(1).forEach { addIngredient(it) }
-                                    draftIngredient = parts.last()
-                                } else {
-                                    draftIngredient = typed
-                                }
-                            },
-                            label = "Add Ingredient",
-                            placeholder = "Type ingredient & press Done or comma...",
-                            singleLine = true,
+                            value = uiState.pantryInput,
+                            onValueChange = onPantryInputChange,
+                            label = "Available Ingredients",
+                            placeholder = "e.g. eggs, oats, rice, chicken breast, paneer, curd, banana...",
+                            maxLines = 4,
+                            singleLine = false,
                             imeAction = ImeAction.Done,
-                            keyboardActions = KeyboardActions(
-                                onDone = {
-                                    if (draftIngredient.isNotBlank()) {
-                                        addIngredient(draftIngredient)
-                                        draftIngredient = ""
-                                    }
-                                }
-                            ),
+                            unfocusedBorderColor = GetFitTheme.colors.accent.copy(alpha = 0.7f),
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        if (availableSuggestions.isNotEmpty()) {
-                            GfChipRow(
-                                items = availableSuggestions,
-                                selectedItem = "",
-                                onItemSelected = { addIngredient(it) },
-                                contentPadding = PaddingValues(0.dp)
-                            )
-                        }
-
-                        val goalLabel = "${uiState.userProfile.goal.ifBlank { "Muscle Building" }} · ${uiState.userProfile.dailyCalorieTarget} kcal"
-                        GfChip(
-                            text = goalLabel,
-                            selected = false,
-                            leadingIcon = Icons.Rounded.Tune,
-                            onClick = {}
-                        )
-
-                        GfPrimaryButton(
-                            text = "Generate Meal Plan",
-                            icon = Icons.Rounded.AutoAwesome,
-                            isLoading = uiState.isGeneratingMealPlan,
-                            enabled = (ingredients.isNotEmpty() || draftIngredient.isNotBlank()) && !uiState.isGeneratingMealPlan,
-                            onClick = {
-                                if (draftIngredient.isNotBlank()) {
-                                    addIngredient(draftIngredient)
-                                    draftIngredient = ""
-                                }
-                                onGenerateMealPlan()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-            }
-
-            // B1. ERROR CARD
-            if (!uiState.mealPlanError.isNullOrBlank()) {
-                item(key = "meal_plan_error", contentType = "error") {
-                    GfCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(
-                                1.dp,
-                                GetFitTheme.colors.warning.copy(alpha = 0.45f),
-                                RoundedCornerShape(Dimens.xxl)
-                            )
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(Dimens.sm)) {
+                        if (!uiState.mealPlanError.isNullOrBlank()) {
                             Text(
                                 text = uiState.mealPlanError,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = GetFitTheme.colors.textPrimary
-                            )
-                            GfSecondaryButton(
-                                text = "Try again",
-                                onClick = onGenerateMealPlan,
-                                compact = true
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GetFitTheme.colors.danger
                             )
                         }
+
+                        GfSecondaryButton(
+                            text = "Generate Meal Plan",
+                            icon = Icons.Default.AutoAwesome,
+                            isLoading = uiState.isGeneratingMealPlan,
+                            enabled = uiState.pantryInput.isNotBlank() && !uiState.isGeneratingMealPlan,
+                            onClick = onGenerateMealPlan,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
 
-            // B1. LOADING SKELETON (3 shimmer meal cards)
-            if (uiState.isGeneratingMealPlan) {
-                items(3, key = { "meal_skeleton_$it" }, contentType = { "skeleton" }) {
-                    MealPlanSkeletonCard()
-                }
-            } else if (plan != null) {
-                // B2. PLAN SUMMARY HERO CARD
-                item(key = "ai_plan_overview", contentType = "summary") {
-                    val goalKcal = uiState.userProfile.dailyCalorieTarget.coerceAtLeast(1)
-                    val pctOfGoal = ((plan.totalCalories.toFloat() / goalKcal.toFloat()) * 100f).toInt()
-                    val allMealsLogged = plan.meals.isNotEmpty() &&
-                        plan.meals.all { "${it.mealType}_${it.title}" in loggedMealKeys }
-                    val anyMealLogged = plan.meals.any { "${it.mealType}_${it.title}" in loggedMealKeys }
-
-                    val pKcal = (plan.totalProtein * 4f).coerceAtLeast(0f)
-                    val cKcal = (plan.totalCarbs * 4f).coerceAtLeast(0f)
-                    val fKcal = (plan.totalFat * 9f).coerceAtLeast(0f)
-                    val macroSum = (pKcal + cKcal + fKcal).coerceAtLeast(1f)
-
-                    GfHeroCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                GfOverline(text = "YOUR AI DAILY PLAN")
-                                Box(
-                                    modifier = Modifier
-                                        .clip(CircleShape)
-                                        .background(GetFitTheme.colors.surface2)
-                                        .border(1.dp, GetFitTheme.colors.hairline, CircleShape)
-                                        .padding(horizontal = Dimens.sm, vertical = 4.dp)
-                                ) {
-                                    Text(
-                                        text = "$pctOfGoal% of goal",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = GetFitTheme.colors.textSecondary,
-                                        maxLines = 1,
-                                        softWrap = false
-                                    )
-                                }
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.Bottom,
-                                horizontalArrangement = Arrangement.spacedBy(Dimens.sm),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                GfBigNumber(
-                                    value = plan.totalCalories,
-                                    unit = "kcal",
-                                    hero = true
-                                )
-                                Text(
-                                    text = "of $goalKcal kcal goal",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = GetFitTheme.colors.textSecondary,
-                                    modifier = Modifier.padding(bottom = 6.dp)
-                                )
-                            }
-
-                            // 8dp stacked macro-split bar
-                            Row(
+            val plan = uiState.generatedMealPlan
+            if (plan != null) {
+                item(key = "ai_plan_overview") {
+                    GfCard(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Your AI Daily Plan",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = GetFitTheme.colors.textPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            Spacer(modifier = Modifier.width(Dimens.sm))
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(8.dp)
-                                    .clip(CircleShape),
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                    .clip(CircleShape)
+                                    .background(GetFitTheme.colors.surface2)
+                                    .border(1.dp, GetFitTheme.colors.hairline, CircleShape)
+                                    .padding(horizontal = Dimens.md, vertical = Dimens.xs)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .weight((pKcal / macroSum).coerceAtLeast(0.05f))
-                                        .fillMaxHeight()
-                                        .background(GetFitTheme.colors.protein)
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .weight((cKcal / macroSum).coerceAtLeast(0.05f))
-                                        .fillMaxHeight()
-                                        .background(GetFitTheme.colors.carbs)
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .weight((fKcal / macroSum).coerceAtLeast(0.05f))
-                                        .fillMaxHeight()
-                                        .background(GetFitTheme.colors.fat)
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(Dimens.lg),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                MacroDotStat("P ${plan.totalProtein}g", GetFitTheme.colors.protein)
-                                MacroDotStat("C ${plan.totalCarbs}g", GetFitTheme.colors.carbs)
-                                MacroDotStat("F ${plan.totalFat}g", GetFitTheme.colors.fat)
-                            }
-
-                            Column(modifier = Modifier.animateContentSize()) {
                                 Text(
-                                    text = plan.summary,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = GetFitTheme.colors.textSecondary,
-                                    maxLines = if (summaryExpanded) Int.MAX_VALUE else 2,
-                                    overflow = TextOverflow.Ellipsis
+                                    text = "${plan.totalCalories} kcal • ${plan.totalProtein}g P",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = GetFitTheme.colors.accent,
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
-                                if (plan.summary.length > 90) {
-                                    GfTextButton(
-                                        text = if (summaryExpanded) "Less" else "More",
-                                        onClick = { summaryExpanded = !summaryExpanded },
-                                        color = GetFitTheme.colors.textSecondary
-                                    )
-                                }
                             }
-
-                            if (plan.meals.isNotEmpty()) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(Dimens.xs)
-                                ) {
-                                    GfPrimaryButton(
-                                        text = if (allMealsLogged) "All Meals Logged" else "Log Entire Plan to Diary",
-                                        icon = if (allMealsLogged) Icons.Rounded.Check else Icons.Rounded.Add,
-                                        enabled = !allMealsLogged,
-                                        onClick = {
-                                            if (anyMealLogged) {
-                                                pendingBulkLogMeals = plan.meals
-                                            } else {
-                                                onLogAllGeneratedMeals(plan.meals)
-                                            }
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                    GfTextButton(
-                                        text = "Regenerate",
-                                        onClick = onGenerateMealPlan,
-                                        color = GetFitTheme.colors.textSecondary
-                                    )
-                                }
-                            }
+                        }
+                        Spacer(modifier = Modifier.height(Dimens.xs))
+                        Text(
+                            text = plan.summary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = GetFitTheme.colors.textSecondary
+                        )
+                        if (plan.meals.isNotEmpty()) {
+                            val allMealsLogged = plan.meals.all { isGeneratedMealLogged(it, uiState.todayLogs) }
+                            val anyMealLogged = plan.meals.any { isGeneratedMealLogged(it, uiState.todayLogs) }
+                            Spacer(modifier = Modifier.height(Dimens.md))
+                            GfPrimaryButton(
+                                text = if (allMealsLogged) "All Meals Logged" else "Log Entire Plan to Diary",
+                                icon = if (allMealsLogged) Icons.Rounded.Check else Icons.Rounded.Add,
+                                onClick = {
+                                    if (anyMealLogged) {
+                                        pendingBulkLogMeals = plan.meals
+                                    } else {
+                                        onLogAllGeneratedMeals(plan.meals)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }
 
-                // B3. TIMELINE MEAL CARDS
-                itemsIndexed(
-                    plan.meals,
-                    key = { idx, meal -> "ai_meal_${meal.mealType}_$idx" },
-                    contentType = { _, _ -> "meal" }
-                ) { idx, meal ->
-                    val isLogged = "${meal.mealType}_${meal.title}" in loggedMealKeys
-                    TimelineMealCard(
+                itemsIndexed(plan.meals, key = { idx, meal -> "ai_meal_${meal.mealType}_$idx" }) { _, meal ->
+                    val isLogged = isGeneratedMealLogged(meal, uiState.todayLogs)
+                    GeneratedMealCard(
                         meal = meal,
                         isLogged = isLogged,
-                        isFirst = idx == 0,
-                        isLast = idx == plan.meals.lastIndex,
-                        staggerIndex = if (shouldStaggerPlan) idx.coerceAtMost(3) else null,
                         onLogClick = {
                             if (isLogged) duplicateMealToConfirm = meal else onLogGeneratedMeal(meal)
                         }
                     )
                 }
-            } else if (uiState.mealPlanError.isNullOrBlank()) {
-                // B5. CALM EMPTY STATE (no lime)
-                item(key = "meal_plan_empty", contentType = "empty") {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = Dimens.xl, horizontal = Dimens.lg),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(Dimens.sm)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(CircleShape)
-                                .background(GetFitTheme.colors.surface2)
-                                .border(1.dp, GetFitTheme.colors.hairline, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.AutoAwesome,
-                                contentDescription = null,
-                                tint = GetFitTheme.colors.textSecondary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Text(
-                            text = "Plan your day in seconds",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = GetFitTheme.colors.textPrimary,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = "Add what you have at home and we'll build meals that fit your macros.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = GetFitTheme.colors.textSecondary,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
             }
 
-            // B4. PREVIOUSLY GENERATED PLANS
             if (uiState.mealPlanHistory.isNotEmpty()) {
-                item(key = "ai_plan_history_header", contentType = "historyHeader") {
+                item(key = "ai_plan_history_header") {
                     GfOverline(
                         text = "PREVIOUSLY GENERATED PLANS",
                         modifier = Modifier.padding(top = Dimens.sm)
                     )
                 }
 
-                items(
-                    uiState.mealPlanHistory,
-                    key = { "history_${it.id}" },
-                    contentType = { "historyRow" }
-                ) { entry ->
+                items(uiState.mealPlanHistory, key = { "history_${it.id}" }) { entry ->
                     val isExpanded = expandedHistoryId == entry.id
                     val dateLabel = remember(entry.timestampMs) {
                         historyDateFormat.format(Date(entry.timestampMs))
                     }
-                    val chevronRotation by animateFloatAsState(
-                        targetValue = if (isExpanded) 180f else 0f,
-                        animationSpec = tween(150),
-                        label = "history_chevron"
-                    )
+                    val allMealsLogged = entry.plan.meals.isNotEmpty() &&
+                        entry.plan.meals.all { isGeneratedMealLogged(it, uiState.todayLogs) }
+                    val anyMealLogged = entry.plan.meals.any { isGeneratedMealLogged(it, uiState.todayLogs) }
 
                     GfCard(
                         modifier = Modifier.fillMaxWidth(),
-                        onClick = { expandedHistoryId = if (isExpanded) null else entry.id }
+                        onClick = {
+                            expandedHistoryId = if (isExpanded) null else entry.id
+                        }
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -1858,75 +1578,71 @@ private fun MealPlanTabContent(
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .padding(end = Dimens.sm),
-                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                                    .padding(end = Dimens.sm)
                             ) {
                                 Text(
-                                    text = dateLabel,
+                                    text = "$dateLabel • ${entry.goal}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = GetFitTheme.colors.accent,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = entry.pantryItems,
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = GetFitTheme.colors.textPrimary,
-                                    maxLines = 1,
+                                    maxLines = if (isExpanded) 3 else 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = "${entry.plan.meals.size} meals · ${entry.plan.totalCalories} kcal · ${entry.plan.totalProtein}g P",
+                                    text = "${entry.plan.totalCalories} kcal • ${entry.plan.totalProtein}g P • ${entry.plan.totalCarbs}g C • ${entry.plan.totalFat}g F",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = GetFitTheme.colors.textSecondary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    color = GetFitTheme.colors.textSecondary
                                 )
                             }
                             Icon(
-                                imageVector = Icons.Rounded.KeyboardArrowDown,
+                                imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                                 contentDescription = if (isExpanded) "Collapse plan" else "Expand plan",
-                                tint = GetFitTheme.colors.textSecondary,
-                                modifier = Modifier.rotate(chevronRotation)
+                                tint = GetFitTheme.colors.textSecondary
                             )
                         }
 
-                        AnimatedVisibility(
-                            visible = isExpanded,
-                            enter = expandVertically(tween(180)) + fadeIn(tween(150)),
-                            exit = shrinkVertically(tween(150)) + fadeOut(tween(120))
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = Dimens.md),
-                                verticalArrangement = Arrangement.spacedBy(Dimens.sm)
-                            ) {
-                                entry.plan.meals.forEach { meal ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "${meal.mealType}: ${meal.title}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = GetFitTheme.colors.textSecondary,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1f).padding(end = Dimens.sm)
-                                        )
-                                        Text(
-                                            text = "${meal.calories} kcal",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
-                                            color = GetFitTheme.colors.textTertiary
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(Dimens.xs))
-                                GfSecondaryButton(
-                                    text = "Use this plan",
-                                    compact = true,
+                        if (isExpanded) {
+                            Spacer(modifier = Modifier.height(Dimens.md))
+                            Text(
+                                text = entry.plan.summary,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = GetFitTheme.colors.textSecondary
+                            )
+                            if (entry.plan.meals.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(Dimens.md))
+                                GfPrimaryButton(
+                                    text = if (allMealsLogged) "All Meals Logged" else "Log Entire Plan to Diary",
+                                    icon = if (allMealsLogged) Icons.Rounded.Check else Icons.Rounded.Add,
                                     onClick = {
-                                        onUseHistoryPlan(entry)
-                                        expandedHistoryId = null
+                                        if (anyMealLogged) {
+                                            pendingBulkLogMeals = entry.plan.meals
+                                        } else {
+                                            onLogAllGeneratedMeals(entry.plan.meals)
+                                        }
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 )
+                                Spacer(modifier = Modifier.height(Dimens.md))
+                                Column(verticalArrangement = Arrangement.spacedBy(Dimens.sm)) {
+                                    entry.plan.meals.forEach { meal ->
+                                        val isLogged = isGeneratedMealLogged(meal, uiState.todayLogs)
+                                        GeneratedMealCard(
+                                            meal = meal,
+                                            isLogged = isLogged,
+                                            onLogClick = {
+                                                if (isLogged) duplicateMealToConfirm = meal else onLogGeneratedMeal(meal)
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -1937,261 +1653,78 @@ private fun MealPlanTabContent(
 }
 
 @Composable
-private fun MacroDotStat(text: String, dotColor: Color) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(dotColor)
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
-            color = GetFitTheme.colors.textSecondary,
-            maxLines = 1,
-            softWrap = false
-        )
-    }
-}
-
-@Composable
-private fun MealPlanSkeletonCard() {
-    val infiniteTransition = rememberInfiniteTransition(label = "meal_skeleton")
-    val shimmerAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.06f,
-        targetValue = 0.12f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1200),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "meal_skeleton_alpha"
-    )
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(128.dp)
-            .clip(RoundedCornerShape(Dimens.xxl))
-            .background(GetFitTheme.colors.textPrimary.copy(alpha = shimmerAlpha))
-    )
-}
-
-@Composable
-private fun TimelineMealCard(
+private fun GeneratedMealCard(
     meal: GeminiNutritionService.GeneratedMeal,
     isLogged: Boolean,
-    isFirst: Boolean,
-    isLast: Boolean,
-    staggerIndex: Int?,
     onLogClick: () -> Unit
 ) {
-    var ingredientsExpanded by remember { mutableStateOf(false) }
-    val chevronRotation by animateFloatAsState(
-        targetValue = if (ingredientsExpanded) 180f else 0f,
-        animationSpec = tween(150),
-        label = "ingredients_chevron"
-    )
-
-    var visible by remember(staggerIndex) { mutableStateOf(staggerIndex == null) }
-    if (staggerIndex != null && !visible) {
-        LaunchedEffect(staggerIndex) {
-            delay(staggerIndex * 30L)
-            visible = true
-        }
-    }
-    val cardAlpha by animateFloatAsState(
-        targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(150),
-        label = "meal_stagger_alpha"
-    )
-    val cardOffsetDp by animateFloatAsState(
-        targetValue = if (visible) 0f else 8f,
-        animationSpec = tween(150),
-        label = "meal_stagger_y"
-    )
-
-    val mealIcon = remember(meal.mealType) {
-        when (meal.mealType.lowercase()) {
-            "breakfast" -> Icons.Rounded.WbSunny
-            "lunch" -> Icons.Rounded.LunchDining
-            "dinner" -> Icons.Rounded.DinnerDining
-            else -> Icons.Rounded.Cookie
-        }
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(IntrinsicSize.Min)
-            .graphicsLayer {
-                alpha = cardAlpha
-                translationY = cardOffsetDp * density
-            },
-        horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
-    ) {
-        // Left timeline rail + 36dp node
-        Box(
-            modifier = Modifier
-                .width(36.dp)
-                .fillMaxHeight(),
-            contentAlignment = Alignment.TopCenter
+    GfCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (!isFirst) {
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(18.dp)
-                        .background(GetFitTheme.colors.hairline)
-                )
-            }
-            if (!isLast) {
-                Box(
-                    modifier = Modifier
-                        .padding(top = 18.dp)
-                        .width(1.dp)
-                        .fillMaxHeight()
-                        .background(GetFitTheme.colors.hairline)
-                )
-            }
-            Box(
+            Column(
                 modifier = Modifier
-                    .padding(top = 8.dp)
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (isLogged) GetFitTheme.colors.accent.copy(alpha = 0.16f)
-                        else GetFitTheme.colors.surface2
-                    )
-                    .border(
-                        1.dp,
-                        if (isLogged) GetFitTheme.colors.accent.copy(alpha = 0.4f)
-                        else GetFitTheme.colors.hairline,
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = mealIcon,
-                    contentDescription = meal.mealType,
-                    tint = if (isLogged) GetFitTheme.colors.accent else GetFitTheme.colors.textSecondary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-
-        // Right GfCard
-        GfCard(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .weight(1f)
+                    .padding(end = Dimens.sm)
             ) {
                 GfOverline(text = meal.mealType.uppercase())
-                if (isLogged) {
-                    GfStatusPill(text = "Logged")
-                } else {
-                    GfSecondaryButton(
-                        text = "Log",
-                        onClick = onLogClick,
-                        icon = Icons.Rounded.Add,
-                        compact = true
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(Dimens.xs))
-            Text(
-                text = meal.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = GetFitTheme.colors.textPrimary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(Dimens.xs))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
-                modifier = Modifier.fillMaxWidth()
-            ) {
                 Text(
-                    text = "${meal.calories} kcal",
-                    style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"),
-                    fontWeight = FontWeight.Bold,
+                    text = meal.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
                     color = GetFitTheme.colors.textPrimary,
                     maxLines = 1,
-                    softWrap = false
-                )
-                Text(
-                    text = "· P ${meal.protein}g · C ${meal.carbs}g · F ${meal.fat}g",
-                    style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
-                    color = GetFitTheme.colors.textSecondary,
-                    maxLines = 1,
+                    softWrap = false,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            if (meal.items.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(Dimens.sm))
+            if (isLogged) {
+                GfStatusPill(text = "Logged")
+            } else {
+                GfSecondaryButton(
+                    text = "Log to Diary",
+                    onClick = onLogClick,
+                    icon = Icons.Rounded.Add,
+                    compact = true
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(Dimens.xs))
+        Text(
+            text = buildAnnotatedString {
+                withStyle(SpanStyle(color = GetFitTheme.colors.textPrimary, fontWeight = FontWeight.SemiBold)) {
+                    append("${meal.calories}")
+                }
+                append(" kcal · P ${meal.protein}g · C ${meal.carbs}g · F ${meal.fat}g")
+            },
+            style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
+            color = GetFitTheme.colors.textSecondary
+        )
+
+        Spacer(modifier = Modifier.height(Dimens.sm))
+        Column(modifier = Modifier.alpha(if (isLogged) 0.6f else 1f)) {
+            meal.items.forEach { foodDesc ->
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(Dimens.sm))
-                        .clickable { ingredientsExpanded = !ingredientsExpanded }
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(vertical = 2.dp)
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .size(4.dp)
+                            .clip(CircleShape)
+                            .background(GetFitTheme.colors.textTertiary)
+                    )
                     Text(
-                        text = "Ingredients (${meal.items.size})",
-                        style = MaterialTheme.typography.labelMedium,
+                        text = foodDesc,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = GetFitTheme.colors.textSecondary
                     )
-                    Icon(
-                        imageVector = Icons.Rounded.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = GetFitTheme.colors.textSecondary,
-                        modifier = Modifier
-                            .size(18.dp)
-                            .rotate(chevronRotation)
-                    )
-                }
-
-                AnimatedVisibility(
-                    visible = ingredientsExpanded,
-                    enter = expandVertically(tween(150)) + fadeIn(tween(150)),
-                    exit = shrinkVertically(tween(150)) + fadeOut(tween(120))
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .padding(top = Dimens.xs)
-                            .alpha(if (isLogged) 0.6f else 1f)
-                    ) {
-                        meal.items.forEach { foodDesc ->
-                            Row(
-                                verticalAlignment = Alignment.Top,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                modifier = Modifier.padding(vertical = 2.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .padding(top = 8.dp)
-                                        .size(4.dp)
-                                        .clip(CircleShape)
-                                        .background(GetFitTheme.colors.textTertiary)
-                                )
-                                Text(
-                                    text = foodDesc,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = GetFitTheme.colors.textSecondary
-                                )
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -2897,117 +2430,4 @@ private fun EditWaterTargetDialog(
             )
         }
     )
-}
-
-@Preview(name = "MealPlans - Empty Dark", showBackground = true, backgroundColor = 0xFF000000)
-@Composable
-private fun MealPlanEmptyPreview() {
-    GetFitTheme {
-        MealPlanTabContent(
-            uiState = FoodUiState(),
-            onPantryInputChange = {},
-            onGenerateMealPlan = {},
-            onLogGeneratedMeal = {},
-            onLogAllGeneratedMeals = {},
-            onNavigateToAuth = {},
-            previewLoggedOverride = true
-        )
-    }
-}
-
-@Preview(name = "MealPlans - Loading Skeleton", showBackground = true, backgroundColor = 0xFF000000)
-@Composable
-private fun MealPlanLoadingPreview() {
-    GetFitTheme {
-        MealPlanTabContent(
-            uiState = FoodUiState(pantryInput = "Eggs, Rice, Chicken", isGeneratingMealPlan = true),
-            onPantryInputChange = {},
-            onGenerateMealPlan = {},
-            onLogGeneratedMeal = {},
-            onLogAllGeneratedMeals = {},
-            onNavigateToAuth = {},
-            previewLoggedOverride = true
-        )
-    }
-}
-
-@Preview(name = "MealPlans - Plan Loaded", showBackground = true, backgroundColor = 0xFF000000)
-@Composable
-private fun MealPlanLoadedPreview() {
-    val samplePlan = GeminiNutritionService.GeneratedMealPlan(
-        summary = "High-protein muscle building plan balanced across four meals using your kitchen staples.",
-        totalCalories = 2680,
-        totalProtein = 165,
-        totalCarbs = 320,
-        totalFat = 72,
-        meals = listOf(
-            GeminiNutritionService.GeneratedMeal(
-                mealType = "Breakfast",
-                title = "Scrambled Eggs & Oats",
-                calories = 620,
-                protein = 38,
-                carbs = 65,
-                fat = 20,
-                items = listOf("3 whole eggs", "60g rolled oats", "1 banana")
-            ),
-            GeminiNutritionService.GeneratedMeal(
-                mealType = "Lunch",
-                title = "Chicken Breast Rice Bowl",
-                calories = 840,
-                protein = 55,
-                carbs = 110,
-                fat = 18,
-                items = listOf("200g chicken breast", "250g cooked rice", "5ml olive oil")
-            )
-        )
-    )
-    GetFitTheme {
-        MealPlanTabContent(
-            uiState = FoodUiState(
-                pantryInput = "Eggs, Rice, Chicken",
-                generatedMealPlan = samplePlan,
-                todayLogs = listOf(
-                    com.getfit.data.entity.FoodLog(
-                        date = "2026-11-26",
-                        time = "08:00",
-                        mealType = "Breakfast",
-                        foodItemId = 0L,
-                        foodName = "Scrambled Eggs & Oats",
-                        quantity = 1.0,
-                        servingSize = 1.0,
-                        totalCalories = 620.0,
-                        totalProtein = 38.0,
-                        totalCarbs = 65.0,
-                        totalFat = 20.0,
-                        totalFiber = 0.0
-                    )
-                )
-            ),
-            onPantryInputChange = {},
-            onGenerateMealPlan = {},
-            onLogGeneratedMeal = {},
-            onLogAllGeneratedMeals = {},
-            onNavigateToAuth = {},
-            previewLoggedOverride = true
-        )
-    }
-}
-
-@Preview(name = "MealPlans - Error", showBackground = true, backgroundColor = 0xFF000000)
-@Composable
-private fun MealPlanErrorPreview() {
-    GetFitTheme {
-        MealPlanTabContent(
-            uiState = FoodUiState(
-                pantryInput = "Eggs, Rice",
-                mealPlanError = "Network unavailable. Please check your connection and try again."
-            ),
-            onPantryInputChange = {},
-            onGenerateMealPlan = {},
-            onLogGeneratedMeal = {},
-            onLogAllGeneratedMeals = {},
-            onNavigateToAuth = {},
-            previewLoggedOverride = true
-        )
-    }
 }
