@@ -99,6 +99,10 @@ fun FoodScreen(
     val diaryScrollTarget by viewModel.diaryScrollTarget.collectAsStateWithLifecycle()
     val tabs = listOf("Diary", "Search & Add", "Meal Plans")
 
+    androidx.activity.compose.BackHandler(enabled = selectedTab != 0) {
+        viewModel.resetToDiary()
+    }
+
     var selectedFoodForDialog by remember { mutableStateOf<FoodItem?>(null) }
     var isSelectedFoodOnline by remember { mutableStateOf(false) }
     var showQuickAddDialog by remember { mutableStateOf(false) }
@@ -1439,19 +1443,20 @@ private fun MealPlanTabContent(
             item(key = "pantry_input_card") {
                 GfCard(modifier = Modifier.fillMaxWidth()) {
                     Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
-                        GfOverline(text = "WHAT'S IN YOUR KITCHEN?")
+                        Column(verticalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                            GfOverline(text = "WHAT'S IN YOUR KITCHEN?")
 
-                        GfTextField(
-                            value = uiState.pantryInput,
-                            onValueChange = onPantryInputChange,
-                            label = "Available Ingredients",
-                            placeholder = "e.g. eggs, oats, rice, chicken breast, paneer, curd, banana...",
-                            maxLines = 4,
-                            singleLine = false,
-                            imeAction = ImeAction.Done,
-                            unfocusedBorderColor = GetFitTheme.colors.accent.copy(alpha = 0.7f),
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                            GfTextField(
+                                value = uiState.pantryInput,
+                                onValueChange = onPantryInputChange,
+                                placeholder = "e.g. eggs, oats, rice, chicken breast, paneer, curd, banana...",
+                                maxLines = 4,
+                                singleLine = false,
+                                imeAction = ImeAction.Done,
+                                unfocusedBorderColor = GetFitTheme.colors.accent.copy(alpha = 0.7f),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
 
                         if (!uiState.mealPlanError.isNullOrBlank()) {
                             Text(

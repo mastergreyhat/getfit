@@ -106,16 +106,34 @@ fun AnalyticsScreen(
             onBack = onNavigateBack
         )
 
-        val showSkeleton = uiState.isLoading || !isTransitionSettled
-        Crossfade(
-            targetState = showSkeleton,
-            animationSpec = tween(durationMillis = 120),
-            label = "analytics_loading_crossfade",
-            modifier = Modifier.fillMaxSize()
-        ) { loading ->
-            if (loading) {
-                AnalyticsSkeletonContent()
+        var showSkeleton by remember { mutableStateOf(false) }
+        LaunchedEffect(uiState.isLoading) {
+            if (uiState.isLoading) {
+                kotlinx.coroutines.delay(150)
+                if (uiState.isLoading) {
+                    showSkeleton = true
+                }
             } else {
+                showSkeleton = false
+            }
+        }
+
+        if (uiState.isLoading && !showSkeleton) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(GetFitTheme.colors.background)
+            )
+        } else {
+            Crossfade(
+                targetState = showSkeleton,
+                animationSpec = tween(durationMillis = 120),
+                label = "analytics_loading_crossfade",
+                modifier = Modifier.fillMaxSize()
+            ) { loading ->
+                if (loading) {
+                    AnalyticsSkeletonContent()
+                } else {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
@@ -285,9 +303,13 @@ fun AnalyticsScreen(
                 }
             }
 
-            // Strength Progression Curve (fixed minHeight 250.dp)
+            // Strength Progression Curve (compact when empty, fixed minHeight 250.dp when populated)
             item {
-                GfCard(modifier = Modifier.fillMaxWidth().heightIn(min = 250.dp)) {
+                GfCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(if (uiState.strengthCurveExercises.isNotEmpty()) Modifier.heightIn(min = 250.dp) else Modifier)
+                ) {
                     Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -341,20 +363,28 @@ fun AnalyticsScreen(
                             )
 
                             if (uiState.exerciseHistory.isNotEmpty()) {
-                                val chartPoints = remember(uiState.exerciseHistory) {
-                                    uiState.exerciseHistory.map {
-                                        StrengthCurvePoint(
-                                            date = it.date,
-                                            weight = it.maxWeight,
-                                            calculated1RM = it.calculated1RM
-                                        )
+                                if (isTransitionSettled) {
+                                    val chartPoints = remember(uiState.exerciseHistory) {
+                                        uiState.exerciseHistory.map {
+                                            StrengthCurvePoint(
+                                                date = it.date,
+                                                weight = it.maxWeight,
+                                                calculated1RM = it.calculated1RM
+                                            )
+                                        }
                                     }
+                                    StrengthCurveChart(
+                                        points = chartPoints,
+                                        animateIntro = !viewModel.hasPlayedChartIntro,
+                                        onIntroFinished = { viewModel.markChartIntroPlayed() }
+                                    )
+                                } else {
+                                    Spacer(modifier = Modifier.fillMaxWidth().height(180.dp))
                                 }
-                                StrengthCurveChart(points = chartPoints)
                             }
                         } else {
                             Text(
-                                text = "Log workouts to visualize your strength curve and estimated 1-Rep Max over time!",
+                                text = "No data yet — log workouts to visualize your strength curve and estimated 1-Rep Max over time.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = GetFitTheme.colors.textSecondary
                             )
@@ -363,9 +393,9 @@ fun AnalyticsScreen(
                 }
             }
 
-            // Weekly Muscle Hypertrophy Volume Card
+            // Weekly Muscle Hypertrophy Volume Card (fixed minHeight 220.dp to match skeleton)
             item {
-                GfCard(modifier = Modifier.fillMaxWidth()) {
+                GfCard(modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp)) {
                     Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -540,6 +570,7 @@ fun AnalyticsScreen(
                 }
             }
                 }
+            }
             }
         }
     }

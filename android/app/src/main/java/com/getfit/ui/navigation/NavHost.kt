@@ -1,18 +1,17 @@
 package com.getfit.ui.navigation
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -65,8 +64,8 @@ import com.getfit.R
 import com.getfit.ui.components.core.GfBottomBar
 import com.getfit.ui.components.core.GfBottomFade
 import com.getfit.ui.components.core.GfBottomNavItem
-import com.getfit.ui.components.core.GfBrandLogo
 import com.getfit.ui.components.core.GfScreenSurface
+import com.getfit.ui.components.core.TabScreenFrame
 import com.getfit.ui.components.core.pressable
 import com.getfit.ui.screens.*
 import com.getfit.ui.theme.Dimens
@@ -154,53 +153,64 @@ fun GetFitNavHost(
 
     // Check if bottom bar should be visible
     val isBottomBarVisible = remember(currentRoute) { bottomNavItems.any { it.route == currentRoute } }
+    val tabRoutes = remember {
+        setOf(Screen.Dashboard.route, Screen.Food.route, Screen.Workout.route, Screen.Profile.route)
+    }
+    val pushedRoutes = remember {
+        setOf(Screen.Analytics.route, Screen.WorkoutDetail.route, Screen.AddCustomFood.route, Screen.Auth.route)
+    }
 
-    Scaffold(
-        modifier = modifier,
-        containerColor = GetFitTheme.colors.background,
-        topBar = {
-            AnimatedVisibility(
-                visible = isBottomBarVisible,
-                enter = fadeIn(tween(100)),
-                exit = fadeOut(tween(100))
-            ) {
-                CleanTopHeader(
-                    currentRoute = currentRoute,
-                    onNavigateToAnalytics = {
-                        navController.navigate(Screen.Analytics.route)
-                    }
-                )
+    val focusManager = LocalFocusManager.current
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(GetFitTheme.colors.background)
+            .imePadding()
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = { focusManager.clearFocus() })
             }
-        }
-    ) { innerPadding ->
-        val focusManager = LocalFocusManager.current
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = innerPadding.calculateTopPadding())
-                .imePadding()
-                .pointerInput(Unit) {
-                    detectTapGestures(onTap = { focusManager.clearFocus() })
+    ) {
+        NavHost(
+            navController = navController,
+            startDestination = startDestination,
+            enterTransition = {
+                val target = targetState.destination.route
+                if (target in pushedRoutes) {
+                    fadeIn(tween(120, easing = LinearOutSlowInEasing)) +
+                        slideInHorizontally(tween(240, easing = FastOutSlowInEasing)) { (it * 0.10f).toInt() }
+                } else {
+                    fadeIn(tween(100, delayMillis = 50, easing = LinearOutSlowInEasing))
                 }
+            },
+            exitTransition = {
+                val initial = initialState.destination.route
+                val target = targetState.destination.route
+                if (initial in tabRoutes && target in pushedRoutes) {
+                    ExitTransition.None
+                } else {
+                    fadeOut(tween(50, easing = FastOutLinearInEasing))
+                }
+            },
+            popEnterTransition = {
+                val initial = initialState.destination.route
+                val target = targetState.destination.route
+                if (initial in pushedRoutes && target in tabRoutes) {
+                    EnterTransition.None
+                } else {
+                    fadeIn(tween(100, delayMillis = 50, easing = LinearOutSlowInEasing))
+                }
+            },
+            popExitTransition = {
+                val initial = initialState.destination.route
+                if (initial in pushedRoutes) {
+                    fadeOut(tween(110)) +
+                        slideOutHorizontally(tween(200, easing = FastOutLinearInEasing)) { (it * 0.10f).toInt() }
+                } else {
+                    fadeOut(tween(50, easing = FastOutLinearInEasing))
+                }
+            },
+            modifier = Modifier.fillMaxSize()
         ) {
-            val detailSlidePx = with(LocalDensity.current) { 16.dp.roundToPx() }
-            NavHost(
-                navController = navController,
-                startDestination = startDestination,
-                enterTransition = {
-                    fadeIn(tween(100, delayMillis = 50, easing = LinearOutSlowInEasing))
-                },
-                exitTransition = {
-                    fadeOut(tween(50, easing = FastOutLinearInEasing))
-                },
-                popEnterTransition = {
-                    fadeIn(tween(100, delayMillis = 50, easing = LinearOutSlowInEasing))
-                },
-                popExitTransition = {
-                    fadeOut(tween(50, easing = FastOutLinearInEasing))
-                },
-                modifier = Modifier.fillMaxSize()
-            ) {
             composable(Screen.OnboardingWelcome.route) {
                 GfScreenSurface {
                     OnboardingWelcomeScreen(
@@ -263,49 +273,48 @@ fun GetFitNavHost(
 
             composable(Screen.Dashboard.route) {
                 GfScreenSurface {
-                    DashboardScreen(
-                        viewModel = dashboardViewModel,
-                        onNavigateToFood = {
-                            foodViewModel.resetToDiary()
-                            navController.navigate(Screen.Food.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                    TabScreenFrame(
+                        route = Screen.Dashboard.route,
+                        onNavigateToAnalytics = { navController.navigate(Screen.Analytics.route) }
+                    ) {
+                        DashboardScreen(
+                            viewModel = dashboardViewModel,
+                            onNavigateToFood = {
+                                foodViewModel.resetToDiary()
+                                navController.navigate(Screen.Food.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        onNavigateToHydration = {
-                            foodViewModel.navigateToHydration()
-                            navController.navigate(Screen.Food.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                            },
+                            onNavigateToHydration = {
+                                foodViewModel.navigateToHydration()
+                                navController.navigate(Screen.Food.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        onNavigateToWorkout = {
-                            workoutViewModel.resetToWorkoutTab()
-                            navController.navigate(Screen.Workout.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                            },
+                            onNavigateToWorkout = {
+                                workoutViewModel.resetToWorkoutTab()
+                                navController.navigate(Screen.Workout.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
 
-            composable(
-                route = Screen.Analytics.route,
-                enterTransition = { fadeIn(tween(160)) + slideInHorizontally(tween(200)) { it / 12 } },
-                exitTransition = { fadeOut(tween(90)) },
-                popEnterTransition = { fadeIn(tween(160)) },
-                popExitTransition = { fadeOut(tween(90)) + slideOutHorizontally(tween(160)) { it / 12 } }
-            ) {
+            composable(route = Screen.Analytics.route) {
                 val isTransitionSettled = transition.currentState == transition.targetState
                 GfScreenSurface {
                     AnalyticsScreen(
@@ -320,25 +329,24 @@ fun GetFitNavHost(
 
             composable(Screen.Food.route) {
                 GfScreenSurface {
-                    FoodScreen(
-                        viewModel = foodViewModel,
-                        onNavigateToAddCustomFood = {
-                            navController.navigate(Screen.AddCustomFood.route)
-                        },
-                        onNavigateToAuth = {
-                            navController.navigate(Screen.Auth.route)
-                        }
-                    )
+                    TabScreenFrame(
+                        route = Screen.Food.route,
+                        onNavigateToAnalytics = { navController.navigate(Screen.Analytics.route) }
+                    ) {
+                        FoodScreen(
+                            viewModel = foodViewModel,
+                            onNavigateToAddCustomFood = {
+                                navController.navigate(Screen.AddCustomFood.route)
+                            },
+                            onNavigateToAuth = {
+                                navController.navigate(Screen.Auth.route)
+                            }
+                        )
+                    }
                 }
             }
 
-            composable(
-                route = Screen.AddCustomFood.route,
-                enterTransition = { fadeIn(tween(160)) + slideInVertically(tween(160)) { detailSlidePx } },
-                exitTransition = { fadeOut(tween(90)) },
-                popEnterTransition = { fadeIn(tween(160)) },
-                popExitTransition = { fadeOut(tween(90)) + slideOutVertically(tween(90)) { detailSlidePx } }
-            ) {
+            composable(route = Screen.AddCustomFood.route) {
                 GfScreenSurface {
                     AddCustomFoodScreen(
                         viewModel = foodViewModel,
@@ -351,14 +359,19 @@ fun GetFitNavHost(
 
             composable(Screen.Workout.route) {
                 GfScreenSurface {
-                    WorkoutScreen(
-                        viewModel = workoutViewModel,
-                        onNavigateToWorkoutDetail = { id, name, muscle, sets, reps, dayName ->
-                            navController.navigate(
-                                Screen.WorkoutDetail.createRoute(id, name, muscle, sets, reps, dayName)
-                            )
-                        }
-                    )
+                    TabScreenFrame(
+                        route = Screen.Workout.route,
+                        onNavigateToAnalytics = { navController.navigate(Screen.Analytics.route) }
+                    ) {
+                        WorkoutScreen(
+                            viewModel = workoutViewModel,
+                            onNavigateToWorkoutDetail = { id, name, muscle, sets, reps, dayName ->
+                                navController.navigate(
+                                    Screen.WorkoutDetail.createRoute(id, name, muscle, sets, reps, dayName)
+                                )
+                            }
+                        )
+                    }
                 }
             }
 
@@ -371,11 +384,7 @@ fun GetFitNavHost(
                     navArgument("sets") { type = NavType.IntType },
                     navArgument("reps") { type = NavType.StringType },
                     navArgument("dayName") { type = NavType.StringType }
-                ),
-                enterTransition = { fadeIn(tween(160)) + slideInHorizontally(tween(200)) { it / 12 } },
-                exitTransition = { fadeOut(tween(90)) },
-                popEnterTransition = { fadeIn(tween(160)) },
-                popExitTransition = { fadeOut(tween(90)) + slideOutHorizontally(tween(160)) { it / 12 } }
+                )
             ) { backStackEntry ->
                 val exerciseId = backStackEntry.arguments?.getLong("exerciseId") ?: 0L
                 val exerciseNameRaw = backStackEntry.arguments?.getString("exerciseName") ?: ""
@@ -407,27 +416,31 @@ fun GetFitNavHost(
 
             composable(Screen.Profile.route) {
                 GfScreenSurface {
-                    ProfileScreen(
-                        viewModel = profileViewModel,
-                        onNavigateToAuth = {
-                            navController.navigate(Screen.Auth.route)
-                        },
-                        onLogout = {
-                            navController.navigate(Screen.OnboardingWelcome.route) {
-                                popUpTo(0) { inclusive = true }
-                                launchSingleTop = true
+                    TabScreenFrame(
+                        route = Screen.Profile.route,
+                        onNavigateToAnalytics = { navController.navigate(Screen.Analytics.route) }
+                    ) {
+                        ProfileScreen(
+                            viewModel = profileViewModel,
+                            onNavigateToAuth = {
+                                navController.navigate(Screen.Auth.route)
+                            },
+                            onLogout = {
+                                navController.navigate(Screen.OnboardingWelcome.route) {
+                                    popUpTo(0) { inclusive = true }
+                                    launchSingleTop = true
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
 
-        val bottomBarSlidePx = with(LocalDensity.current) { 24.dp.roundToPx() }
         AnimatedVisibility(
             visible = isBottomBarVisible,
-            enter = fadeIn(tween(100)) + slideInVertically(tween(140)) { bottomBarSlidePx },
-            exit = fadeOut(tween(100)) + slideOutVertically(tween(120)) { bottomBarSlidePx },
+            enter = fadeIn(tween(120)),
+            exit = fadeOut(tween(80)),
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
@@ -451,8 +464,13 @@ fun GetFitNavHost(
                         if (index == selectedIndex || currentRoute == screen.route) return@GfBottomBar
                         pendingIndex = index
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        when (screen) {
+                            Screen.Food -> foodViewModel.resetToDiary()
+                            Screen.Workout -> workoutViewModel.resetToWorkoutTab()
+                            else -> Unit
+                        }
                         navController.navigate(screen.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                            popUpTo(Screen.Dashboard.route) {
                                 saveState = true
                             }
                             launchSingleTop = true
@@ -463,96 +481,5 @@ fun GetFitNavHost(
                 )
             }
         }
-    }
-}
-}
-
-@Composable
-private fun CleanTopHeader(
-    currentRoute: String?,
-    onNavigateToAnalytics: () -> Unit
-) {
-    val isHome = currentRoute == Screen.Dashboard.route || currentRoute == null
-    val title = when (currentRoute) {
-        Screen.Food.route -> "Nutrition"
-        Screen.Workout.route -> "Training"
-        Screen.Profile.route -> "Profile"
-        else -> "Home"
-    }
-
-    Surface(
-        color = GetFitTheme.colors.background,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .statusBarsPadding()
-                .fillMaxWidth()
-                .height(64.dp)
-                .padding(horizontal = Dimens.screenGutter),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AnimatedContent(
-                targetState = currentRoute,
-                transitionSpec = { fadeIn(tween(80, delayMillis = 40)) togetherWith fadeOut(tween(60)) },
-                label = "header_title"
-            ) { route ->
-                val routeIsHome = route == Screen.Dashboard.route || route == null
-                val routeTitle = when (route) {
-                    Screen.Food.route -> "Nutrition"
-                    Screen.Workout.route -> "Training"
-                    Screen.Profile.route -> "Profile"
-                    else -> "Home"
-                }
-                if (routeIsHome) {
-                    GfBrandLogo(
-                        iconSize = 30.dp,
-                        textStyle = MaterialTheme.typography.titleLarge
-                    )
-                } else {
-                    Text(
-                        text = routeTitle,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = GetFitTheme.colors.textPrimary
-                    )
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .minimumInteractiveComponentSize()
-                    .pressable(onClick = onNavigateToAnalytics),
-                contentAlignment = Alignment.Center
-            ) {
-                Surface(
-                    modifier = Modifier.size(40.dp),
-                    shape = CircleShape,
-                    color = GetFitTheme.colors.surface1,
-                    border = BorderStroke(1.dp, GetFitTheme.colors.hairline)
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.TrendingUp,
-                            contentDescription = "Analytics",
-                            tint = GetFitTheme.colors.textSecondary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Preview(name = "CleanTopHeader - Home Dark", showBackground = true, backgroundColor = 0xFF000000)
-@Composable
-private fun CleanTopHeaderDarkPreview() {
-    GetFitTheme {
-        CleanTopHeader(currentRoute = Screen.Dashboard.route, onNavigateToAnalytics = {})
     }
 }

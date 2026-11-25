@@ -131,6 +131,10 @@ fun WorkoutScreen(
     val selectedTab by viewModel.currentTab.collectAsStateWithLifecycle()
     val tabs = listOf("Workout", "All Exercises", "Progress & PBs")
 
+    androidx.activity.compose.BackHandler(enabled = selectedTab != 0) {
+        viewModel.resetToWorkoutTab()
+    }
+
     var showStopwatch by remember { mutableStateOf(false) }
     var stopwatchMillis by remember { mutableLongStateOf(0L) }
     var isStopwatchRunning by remember { mutableStateOf(false) }
@@ -287,6 +291,21 @@ fun WorkoutScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = GetFitTheme.colors.textSecondary
                     )
+                    val isLoggedForDate = uiState.todayLogs.any {
+                        it.exerciseId == ex.id || it.exerciseName.equals(ex.name, ignoreCase = true)
+                    }
+                    if (isLoggedForDate) {
+                        GfSecondaryButton(
+                            text = "Reset Log",
+                            compact = true,
+                            onClick = {
+                                viewModel.resetExerciseSession(ex.id, ex.name)
+                                feedbackMessage = "\"${ex.name}\" reset to unlogged"
+                                showFeedbackSnackbar = true
+                                selectedExerciseToManage = null
+                            }
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -513,6 +532,12 @@ fun WorkoutScreen(
 
     if (plannedExerciseToEditInToday != null && currentSelectedDay != null) {
         val planned = plannedExerciseToEditInToday!!
+        val matchedExId = uiState.exercises.find {
+            it.name.equals(planned.exerciseName, ignoreCase = true)
+        }?.id ?: planned.exerciseName.hashCode().toLong()
+        val isLoggedForDate = uiState.todayLogs.any {
+            it.exerciseId == matchedExId || it.exerciseName.equals(planned.exerciseName, ignoreCase = true)
+        }
         ModifyTodayExerciseDialog(
             exerciseName = planned.exerciseName,
             dayName = currentSelectedDay.dayName,
@@ -526,6 +551,14 @@ fun WorkoutScreen(
                 showFeedbackSnackbar = true
                 plannedExerciseToEditInToday = null
             },
+            onResetLog = if (isLoggedForDate) {
+                {
+                    viewModel.resetExerciseSession(matchedExId, planned.exerciseName)
+                    feedbackMessage = "\"${planned.exerciseName}\" reset to unlogged"
+                    showFeedbackSnackbar = true
+                    plannedExerciseToEditInToday = null
+                }
+            } else null,
             onRemoveFromToday = {
                 viewModel.removeExerciseFromTodayWorkout(planned.exerciseName)
                 feedbackMessage = "\"${planned.exerciseName}\" moved to Trash"
@@ -1775,6 +1808,7 @@ private fun ModifyTodayExerciseDialog(
     initialNotes: String,
     onDismiss: () -> Unit,
     onConfirm: (sets: Int, reps: String, notes: String) -> Unit,
+    onResetLog: (() -> Unit)? = null,
     onRemoveFromToday: () -> Unit
 ) {
     var setsText by remember { mutableStateOf(initialSets.toString()) }
@@ -1828,6 +1862,13 @@ private fun ModifyTodayExerciseDialog(
                     imeAction = ImeAction.Done,
                     modifier = Modifier.fillMaxWidth()
                 )
+                if (onResetLog != null) {
+                    GfSecondaryButton(
+                        text = "Reset Log",
+                        compact = true,
+                        onClick = onResetLog
+                    )
+                }
             }
         },
         confirmButton = {

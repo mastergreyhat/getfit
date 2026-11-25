@@ -6,6 +6,8 @@ import com.getfit.data.remote.AuthService
 import com.getfit.data.repository.GetFitRepository
 import com.getfit.ui.util.AuthPreferences
 import com.getfit.ui.util.OnboardingPreferences
+import com.getfit.ui.util.StreakManager
+import org.json.JSONObject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -21,6 +23,37 @@ object CloudSyncManager {
     private const val TAG = "CloudSyncManager"
     private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    private fun attachStreakToBackup(context: Context, backupJson: String): String {
+        return try {
+            val root = JSONObject(backupJson)
+            val s = StreakManager.exportState(context)
+            root.put(
+                "streak",
+                JSONObject().apply {
+                    put("currentStreak", s.currentStreak)
+                    put("bestStreak", s.bestStreak)
+                    put("lastStreakDate", s.lastStreakDate)
+                }
+            )
+            root.toString()
+        } catch (_: Exception) {
+            backupJson
+        }
+    }
+
+    private fun restoreStreakFromBackup(context: Context, backupJson: String) {
+        try {
+            val root = JSONObject(backupJson)
+            val s = root.optJSONObject("streak") ?: return
+            StreakManager.restoreState(
+                context = context,
+                currentStreak = s.optInt("currentStreak", 0),
+                bestStreak = s.optInt("bestStreak", 0),
+                lastStreakDate = s.optString("lastStreakDate", "")
+            )
+        } catch (_: Exception) {}
+    }
+
     /**
      * Silent fire-and-forget sync triggered after meal logging, workout logging,
      * or app lifecycle events. Runs in background only if user has logged in.
@@ -31,7 +64,7 @@ object CloudSyncManager {
         syncScope.launch {
             try {
                 val token = AuthPreferences.getToken(context) ?: return@launch
-                val backupJson = repository.exportBackupJson()
+                val backupJson = attachStreakToBackup(context, repository.exportBackupJson())
                 val result = AuthService.uploadSync(token, backupJson)
                 result.onSuccess { syncedAt ->
                     AuthPreferences.setLastSyncedTime(context, syncedAt)
@@ -55,7 +88,7 @@ object CloudSyncManager {
         }
 
         try {
-            val backupJson = repository.exportBackupJson()
+            val backupJson = attachStreakToBackup(context, repository.exportBackupJson())
             val result = AuthService.uploadSync(token, backupJson)
             result.fold(
                 onSuccess = { syncedAt ->
@@ -105,6 +138,7 @@ object CloudSyncManager {
                         Pair(true, "Cloud account linked! Ready for your setup.")
                     } else {
                         val summary = repository.importBackupJson(cloudJson)
+                        restoreStreakFromBackup(context, cloudJson)
                         if (syncResult.updatedAt != null) {
                             AuthPreferences.setLastSyncedTime(context, syncResult.updatedAt)
                         }

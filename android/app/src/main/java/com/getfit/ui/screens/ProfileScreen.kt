@@ -400,7 +400,7 @@ fun ProfileScreen(
 
             GfTextField(
                 value = name,
-                onValueChange = { name = it },
+                onValueChange = { name = com.getfit.ui.util.InputSanitizer.sanitizeNameInput(it) },
                 label = "Full Name",
                 imeAction = ImeAction.Next,
                 modifier = Modifier.fillMaxWidth()
@@ -952,75 +952,84 @@ fun ProfileScreen(
                                     useGradient = false,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
+                                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.sm)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Surface(
+                                                shape = RoundedCornerShape(Dimens.xs),
+                                                color = GetFitTheme.colors.surface2
                                             ) {
-                                                Surface(
-                                                    shape = RoundedCornerShape(Dimens.xs),
-                                                    color = GetFitTheme.colors.surface2
-                                                ) {
-                                                    Text(
-                                                        text = item.itemType,
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = GetFitTheme.colors.accent,
-                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                                    )
-                                                }
                                                 Text(
-                                                    text = "Auto-deletes in $daysRemaining d",
+                                                    text = item.itemType,
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = GetFitTheme.colors.textTertiary
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = GetFitTheme.colors.accent,
+                                                    maxLines = 1,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                                 )
                                             }
-                                            Spacer(modifier = Modifier.height(Dimens.xs))
                                             Text(
-                                                text = item.title,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = GetFitTheme.colors.textPrimary
-                                            )
-                                            Text(
-                                                text = item.subtitle,
+                                                text = "Auto-deletes in ${daysRemaining}d",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = GetFitTheme.colors.textSecondary
+                                                color = GetFitTheme.colors.textTertiary,
+                                                maxLines = 1
                                             )
                                         }
 
                                         Row(
-                                            horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
-                                            verticalAlignment = Alignment.CenterVertically
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                                         ) {
-                                            GfSecondaryButton(
-                                                text = "Restore",
-                                                icon = Icons.Default.Restore,
-                                                compact = true,
-                                                onClick = {
-                                                    viewModel.restoreTrashItem(item) { success ->
-                                                        if (success) {
-                                                            snackbarMessage = "Restored \"${item.title}\" successfully!"
-                                                            showSavedSnackbar = true
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = item.title,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = GetFitTheme.colors.textPrimary,
+                                                    maxLines = 2,
+                                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = item.subtitle,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = GetFitTheme.colors.textSecondary,
+                                                    maxLines = 1,
+                                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                )
+                                            }
+
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                GfSecondaryButton(
+                                                    text = "Restore",
+                                                    icon = Icons.Default.Restore,
+                                                    compact = true,
+                                                    onClick = {
+                                                        viewModel.restoreTrashItem(item) { success ->
+                                                            if (success) {
+                                                                snackbarMessage = "Restored \"${item.title}\" successfully!"
+                                                                showSavedSnackbar = true
+                                                            }
                                                         }
                                                     }
-                                                }
-                                            )
-
-                                            IconButton(
-                                                onClick = { trashItemToDeletePermanently = item }
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.Delete,
-                                                    contentDescription = "Delete Permanently",
-                                                    tint = GetFitTheme.colors.danger,
-                                                    modifier = Modifier.size(18.dp)
                                                 )
+
+                                                IconButton(
+                                                    onClick = { trashItemToDeletePermanently = item }
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Delete,
+                                                        contentDescription = "Delete Permanently",
+                                                        tint = GetFitTheme.colors.danger,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
                                             }
                                         }
                                     }

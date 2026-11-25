@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Home
@@ -18,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -59,6 +61,7 @@ fun Modifier.gfBottomBarPadding(): Modifier = composed {
 
 /**
  * Opaque screen root wrapper so no destination draws on a transparent root during transitions.
+ * Applies statusBars inset in one place for every screen (tab and pushed).
  */
 @Composable
 fun GfScreenSurface(content: @Composable () -> Unit) {
@@ -66,14 +69,113 @@ fun GfScreenSurface(content: @Composable () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .background(GetFitTheme.colors.background)
+            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         content()
     }
 }
 
 /**
+ * Wraps a top-level tab screen with its fixed 64.dp [CleanTopHeader] so the header
+ * travels with the screen during push/pop and tab transitions with zero layout jump.
+ */
+@Composable
+fun TabScreenFrame(
+    route: String,
+    onNavigateToAnalytics: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        CleanTopHeader(
+            route = route,
+            onNavigateToAnalytics = onNavigateToAnalytics
+        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+            content()
+        }
+    }
+}
+
+/**
+ * Fixed 64.dp top header for the 4 bottom-nav tabs.
+ * Status-bar insets are handled once by [GfScreenSurface].
+ */
+@Composable
+fun CleanTopHeader(
+    route: String?,
+    onNavigateToAnalytics: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isHome = route == "dashboard" || route == null
+    val title = when (route) {
+        "food" -> "Nutrition"
+        "workout" -> "Training"
+        "profile" -> "Profile"
+        else -> "Home"
+    }
+
+    Surface(
+        color = GetFitTheme.colors.background,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .padding(horizontal = Dimens.screenGutter),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isHome) {
+                GfBrandLogo(
+                    iconSize = 30.dp,
+                    textStyle = MaterialTheme.typography.titleLarge
+                )
+            } else {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = GetFitTheme.colors.textPrimary
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .pressable(onClick = onNavigateToAnalytics),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = CircleShape,
+                    color = GetFitTheme.colors.surface1,
+                    border = BorderStroke(1.dp, GetFitTheme.colors.hairline)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.TrendingUp,
+                            contentDescription = "Analytics",
+                            tint = GetFitTheme.colors.textSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
  * Shared 64.dp top bar for pushed screens (Analytics, Workout Detail, Add Custom Food).
- * Applies statusBarsPadding() once and matches CleanTopHeader horizontal padding.
+ * Status-bar insets are handled once by [GfScreenSurface].
  */
 @Composable
 fun GfTopBar(
@@ -88,7 +190,6 @@ fun GfTopBar(
     ) {
         Row(
             modifier = Modifier
-                .statusBarsPadding()
                 .fillMaxWidth()
                 .height(64.dp)
                 .padding(horizontal = Dimens.screenGutter),

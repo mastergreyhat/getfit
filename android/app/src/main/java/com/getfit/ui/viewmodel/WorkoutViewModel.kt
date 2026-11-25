@@ -471,6 +471,21 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Deletes all logged sets for [exerciseId]/[exerciseName] on the currently selected date
+     * (today or any previous date) so it returns to the unlogged state in Training, Diary, and Analytics.
+     */
+    fun resetExerciseSession(exerciseId: Long, exerciseName: String) {
+        viewModelScope.launch {
+            val dateStr = AppDateManager.selectedDate.value
+            val logsForDate = repository.getWorkoutLogsForDate(dateStr).first()
+            logsForDate
+                .filter { it.exerciseId == exerciseId || it.exerciseName.equals(exerciseName, ignoreCase = true) }
+                .forEach { repository.deleteWorkoutLog(it) }
+            CloudSyncManager.triggerSilentUpload(getApplication(), repository)
+        }
+    }
+
     fun saveStopwatchRecord(title: String, elapsedMillis: Long, formattedTime: String) {
         viewModelScope.launch {
             val record = StopwatchRecord(

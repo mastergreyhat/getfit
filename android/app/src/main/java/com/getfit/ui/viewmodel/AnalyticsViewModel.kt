@@ -62,6 +62,13 @@ class AnalyticsViewModel(application: Application) : AndroidViewModel(applicatio
     private val _uiState = MutableStateFlow(AnalyticsUiState())
     val uiState: StateFlow<AnalyticsUiState> = _uiState.asStateFlow()
 
+    var hasPlayedChartIntro: Boolean = false
+        private set
+
+    fun markChartIntroPlayed() {
+        hasPlayedChartIntro = true
+    }
+
     init {
         loadAnalyticsData()
     }

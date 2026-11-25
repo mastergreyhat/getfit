@@ -43,7 +43,9 @@ data class StrengthCurvePoint(
 @Composable
 fun StrengthCurveChart(
     points: List<StrengthCurvePoint>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    animateIntro: Boolean = true,
+    onIntroFinished: () -> Unit = {}
 ) {
     if (points.isEmpty()) {
         Box(
@@ -121,12 +123,17 @@ fun StrengthCurveChart(
             }
         }
 
-        // Real Interactive Line Graph (cached geometry/paths via drawWithCache + 400ms first-draw reveal)
-        var drawnOnce by remember { mutableStateOf(false) }
-        LaunchedEffect(Unit) { drawnOnce = true }
+        // Real Interactive Line Graph (cached geometry/paths via drawWithCache + one-shot intro reveal)
+        var drawnOnce by remember(animateIntro) { mutableStateOf(!animateIntro) }
+        LaunchedEffect(animateIntro) {
+            if (animateIntro && !drawnOnce) {
+                drawnOnce = true
+                onIntroFinished()
+            }
+        }
         val revealProgress by animateFloatAsState(
             targetValue = if (drawnOnce) 1f else 0f,
-            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+            animationSpec = tween(durationMillis = if (animateIntro) 400 else 0, easing = FastOutSlowInEasing),
             label = "strength_curve_reveal"
         )
 

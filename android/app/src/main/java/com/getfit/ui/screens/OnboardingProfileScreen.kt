@@ -134,7 +134,7 @@ fun OnboardingProfileScreen(
             // Name
             GfTextField(
                 value = nameText,
-                onValueChange = { nameText = it },
+                onValueChange = { nameText = com.getfit.ui.util.InputSanitizer.sanitizeNameInput(it) },
                 label = "Your Name",
                 placeholder = "e.g. Alex",
                 imeAction = ImeAction.Next,

@@ -205,7 +205,13 @@ fun AuthScreen(
 
                     GfTextField(
                         value = password,
-                        onValueChange = { password = it; errorMessage = null },
+                        onValueChange = { raw ->
+                            val sanitized = com.getfit.ui.util.InputSanitizer.sanitizePasswordInput(raw)
+                            password = sanitized
+                            errorMessage = if (sanitized != raw) {
+                                "Spaces and unsupported characters are not allowed in passwords."
+                            } else null
+                        },
                         label = "Password",
                         leadingIcon = Icons.Default.Lock,
                         trailingIcon = {
@@ -237,8 +243,8 @@ fun AuthScreen(
                                 errorMessage = "Please enter a valid email address."
                                 return@GfPrimaryButton
                             }
-                            if (password.isBlank()) {
-                                errorMessage = "Please enter your password."
+                            com.getfit.ui.util.InputSanitizer.validatePassword(password, isSignUp = false)?.let {
+                                errorMessage = it
                                 return@GfPrimaryButton
                             }
                             errorMessage = null
@@ -263,7 +269,10 @@ fun AuthScreen(
                     ) {
                         GfTextField(
                             value = name,
-                            onValueChange = { name = it; errorMessage = null },
+                            onValueChange = { raw ->
+                                name = com.getfit.ui.util.InputSanitizer.sanitizeNameInput(raw)
+                                errorMessage = null
+                            },
                             label = "Your Name",
                             leadingIcon = Icons.Default.Person,
                             imeAction = ImeAction.Next,
@@ -281,7 +290,13 @@ fun AuthScreen(
 
                         GfTextField(
                             value = password,
-                            onValueChange = { password = it; errorMessage = null },
+                            onValueChange = { raw ->
+                                val sanitized = com.getfit.ui.util.InputSanitizer.sanitizePasswordInput(raw)
+                                password = sanitized
+                                errorMessage = if (sanitized != raw) {
+                                    "Spaces and unsupported characters are not allowed in passwords."
+                                } else null
+                            },
                             label = "Password (min 6 characters)",
                             leadingIcon = Icons.Default.Lock,
                             trailingIcon = {
@@ -310,8 +325,8 @@ fun AuthScreen(
                             enabled = !uiState.isSyncing && name.isNotBlank() && email.isNotBlank() && password.length >= 6,
                             onClick = {
                                 val trimmedEmail = email.trim()
-                                if (name.isBlank()) {
-                                    errorMessage = "Please enter your name."
+                                com.getfit.ui.util.InputSanitizer.validateName(name)?.let {
+                                    errorMessage = it
                                     return@GfPrimaryButton
                                 }
                                 if (trimmedEmail.isBlank() || !trimmedEmail.contains("@")) {
@@ -322,8 +337,8 @@ fun AuthScreen(
                                     errorMessage = "Temporary or disposable email addresses are not allowed. Please enter your real email address."
                                     return@GfPrimaryButton
                                 }
-                                if (password.length < 6) {
-                                    errorMessage = "Password must be at least 6 characters long."
+                                com.getfit.ui.util.InputSanitizer.validatePassword(password, isSignUp = true)?.let {
+                                    errorMessage = it
                                     return@GfPrimaryButton
                                 }
 

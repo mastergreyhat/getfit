@@ -407,7 +407,10 @@ fun DashboardScreen(
                                 .clip(CircleShape)
                                 .then(
                                     when {
-                                        day.isToday -> Modifier.background(GetFitTheme.colors.accent)
+                                        day.isToday && isDone -> Modifier.background(GetFitTheme.colors.accent)
+                                        day.isToday -> Modifier
+                                            .background(Color.Transparent)
+                                            .border(1.5.dp, GetFitTheme.colors.textSecondary, CircleShape)
                                         isDone -> Modifier
                                             .background(Color.Transparent)
                                             .border(1.5.dp, GetFitTheme.colors.accent, CircleShape)
@@ -423,8 +426,8 @@ fun DashboardScreen(
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = if (day.isToday || isDone) FontWeight.Bold else FontWeight.Normal,
                                 color = when {
-                                    day.isToday -> GetFitTheme.colors.onAccent
-                                    isDone -> GetFitTheme.colors.textPrimary
+                                    day.isToday && isDone -> GetFitTheme.colors.onAccent
+                                    day.isToday || isDone -> GetFitTheme.colors.textPrimary
                                     else -> GetFitTheme.colors.textTertiary
                                 }
                             )
@@ -715,7 +718,11 @@ private fun ConsistencyCalendarDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
                     ) {
-                        AnimatedThunderbolt(stage = currentStage, size = 26.dp)
+                        AnimatedThunderbolt(
+                            stage = currentStage,
+                            isLoggedToday = activeDates.contains(todayStr),
+                            size = 26.dp
+                        )
                         Column {
                             Text(
                                 text = "Consistency Calendar",

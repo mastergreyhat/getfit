@@ -43,10 +43,7 @@ object StreakManager {
             return
         }
 
-        val cal = Calendar.getInstance()
-        cal.add(Calendar.DAY_OF_YEAR, -1)
-        val yesterday = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
-
+        val yesterday = yesterdayDate(realToday)
         val newStreak = if (lastStreakDate == yesterday && currentStreak > 0) {
             currentStreak + 1
         } else {
@@ -79,61 +76,82 @@ object StreakManager {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val realToday = AppDateManager.getTodayDate()
         val lastStreakDate = prefs.getString(KEY_LAST_STREAK_DATE, "") ?: ""
-        var currentStreak = prefs.getInt(KEY_CURRENT_STREAK, 0)
-        var bestStreak = prefs.getInt(KEY_BEST_STREAK, 0)
+        val storedCurrent = prefs.getInt(KEY_CURRENT_STREAK, 0)
+        val storedBest = prefs.getInt(KEY_BEST_STREAK, 0)
 
-        val cal = Calendar.getInstance()
-        cal.add(Calendar.DAY_OF_YEAR, -1)
-        val yesterday = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
+        val evaluated = evaluateStreak(
+            realToday = realToday,
+            lastStreakDate = lastStreakDate,
+            storedCurrent = storedCurrent,
+            storedBest = storedBest,
+            isLoggedToday = isLoggedToday
+        )
 
-        if (lastStreakDate == realToday) {
-            // Already logged and credited today
-        } else if (lastStreakDate == yesterday) {
-            if (isLoggedToday) {
-                // Today was logged; credit the consecutive day
-                val newStreak = if (currentStreak > 0) currentStreak + 1 else 1
-                bestStreak = maxOf(bestStreak, newStreak)
-                prefs.edit()
-                    .putString(KEY_LAST_STREAK_DATE, realToday)
-                    .putInt(KEY_CURRENT_STREAK, newStreak)
-                    .putInt(KEY_BEST_STREAK, bestStreak)
-                    .apply()
-                currentStreak = newStreak
+        if (evaluated.currentStreak != storedCurrent ||
+            evaluated.bestStreak != storedBest ||
+            evaluated.lastStreakDate != lastStreakDate
+        ) {
+            prefs.edit()
+                .putString(KEY_LAST_STREAK_DATE, evaluated.lastStreakDate)
+                .putInt(KEY_CURRENT_STREAK, evaluated.currentStreak)
+                .putInt(KEY_BEST_STREAK, evaluated.bestStreak)
+                .apply()
+        }
+
+        return Pair(evaluated.currentStreak, evaluated.bestStreak)
+    }
+
+    data class StreakState(
+        val currentStreak: Int,
+        val bestStreak: Int,
+        val lastStreakDate: String
+    )
+
+    internal fun evaluateStreak(
+        realToday: String,
+        lastStreakDate: String,
+        storedCurrent: Int,
+        storedBest: Int,
+        isLoggedToday: Boolean
+    ): StreakState {
+        val yesterday = yesterdayDate(realToday)
+        var currentStreak = storedCurrent
+        var bestStreak = storedBest
+        var updatedLastDate = lastStreakDate
+
+        when (lastStreakDate) {
+            realToday -> {
+                if (!isLoggedToday) {
+                    // All logs for today were deleted/reset; roll back today's streak credit
+                    currentStreak = (storedCurrent - 1).coerceAtLeast(0)
+                    updatedLastDate = if (currentStreak > 0) yesterday else ""
+                }
             }
-            // else: Streak from yesterday is alive, pending today's log to increment
-        } else {
-            // Missed a day or first time running
-            if (isLoggedToday) {
-                // User has data for today; start fresh streak of 1
-                val newStreak = 1
-                bestStreak = maxOf(bestStreak, newStreak)
-                prefs.edit()
-                    .putString(KEY_LAST_STREAK_DATE, realToday)
-                    .putInt(KEY_CURRENT_STREAK, newStreak)
-                    .putInt(KEY_BEST_STREAK, bestStreak)
-                    .apply()
-                currentStreak = newStreak
-            } else {
-                // Streak broken; reset current streak to 0
-                currentStreak = 0
-                if (prefs.getInt(KEY_CURRENT_STREAK, 0) != 0) {
-                    prefs.edit().putInt(KEY_CURRENT_STREAK, 0).apply()
+            yesterday -> {
+                if (isLoggedToday) {
+                    currentStreak = if (storedCurrent > 0) storedCurrent + 1 else 1
+                    bestStreak = maxOf(storedBest, currentStreak)
+                    updatedLastDate = realToday
+                }
+            }
+            else -> {
+                if (isLoggedToday) {
+                    currentStreak = 1
+                    bestStreak = maxOf(storedBest, 1)
+                    updatedLastDate = realToday
+                } else {
+                    currentStreak = 0
                 }
             }
         }
-
-        return Pair(currentStreak, bestStreak)
+        return StreakState(currentStreak, bestStreak, updatedLastDate)
     }
 
-    fun getActiveStreakDates(context: Context): Set<String> {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val currentStreak = prefs.getInt(KEY_CURRENT_STREAK, 0)
-        val lastStreakDate = prefs.getString(KEY_LAST_STREAK_DATE, "") ?: ""
-        // Include any active streak (>= 1 day) so 1-Day streaks also highlight in the calendar
+    internal fun computeActiveStreakDates(currentStreak: Int, lastStreakDate: String): Set<String> {
         if (currentStreak < 1 || lastStreakDate.isBlank()) {
             return emptySet()
         }
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val streakDates = mutableSetOf<String>()
         try {
             val lastDate = sdf.parse(lastStreakDate) ?: return emptySet()
@@ -144,5 +162,41 @@ object StreakManager {
             }
         } catch (_: Exception) {}
         return streakDates
+    }
+
+    private fun yesterdayDate(today: String): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val cal = Calendar.getInstance()
+        try {
+            sdf.parse(today)?.let { cal.time = it }
+        } catch (_: Exception) {}
+        cal.add(Calendar.DAY_OF_YEAR, -1)
+        return sdf.format(cal.time)
+    }
+
+    fun exportState(context: Context): StreakState {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return StreakState(
+            currentStreak = prefs.getInt(KEY_CURRENT_STREAK, 0),
+            bestStreak = prefs.getInt(KEY_BEST_STREAK, 0),
+            lastStreakDate = prefs.getString(KEY_LAST_STREAK_DATE, "") ?: ""
+        )
+    }
+
+    fun restoreState(context: Context, currentStreak: Int, bestStreak: Int, lastStreakDate: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putInt(KEY_CURRENT_STREAK, currentStreak.coerceAtLeast(0))
+            .putInt(KEY_BEST_STREAK, maxOf(bestStreak, currentStreak).coerceAtLeast(0))
+            .putString(KEY_LAST_STREAK_DATE, lastStreakDate)
+            .apply()
+        _streakUpdates.value = System.currentTimeMillis()
+    }
+
+    fun getActiveStreakDates(context: Context): Set<String> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val currentStreak = prefs.getInt(KEY_CURRENT_STREAK, 0)
+        val lastStreakDate = prefs.getString(KEY_LAST_STREAK_DATE, "") ?: ""
+        return computeActiveStreakDates(currentStreak, lastStreakDate)
     }
 }
