@@ -344,6 +344,16 @@ class FoodViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(pantryInput = input, mealPlanError = null) }
     }
 
+    fun loadHistoryPlan(entry: MealPlanHistoryEntry) {
+        _uiState.update {
+            it.copy(
+                generatedMealPlan = entry.plan,
+                pantryInput = entry.pantryItems,
+                mealPlanError = null
+            )
+        }
+    }
+
     private var mealPlanJob: Job? = null
 
     fun generateAiMealPlan() {
