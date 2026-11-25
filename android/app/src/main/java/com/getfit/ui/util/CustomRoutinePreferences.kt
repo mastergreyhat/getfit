@@ -8,12 +8,17 @@ import org.json.JSONObject
 object CustomRoutinePreferences {
     private const val PREFS_NAME = "getfit_custom_routines"
 
-    private fun getKey(planName: String, dayName: String): String =
-        "routine_${planName.trim().lowercase()}_${dayName.trim().lowercase()}"
+    private fun getKey(planName: String, dayName: String, date: String): String =
+        "routine_${planName.trim().lowercase()}_${dayName.trim().lowercase()}_$date"
 
-    fun getCustomExercises(context: Context, planName: String, dayName: String): List<PlannedExercise>? {
+    fun getCustomExercises(
+        context: Context,
+        planName: String,
+        dayName: String,
+        date: String = AppDateManager.getTodayDate()
+    ): List<PlannedExercise>? {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val jsonStr = prefs.getString(getKey(planName, dayName), null) ?: return null
+        val jsonStr = prefs.getString(getKey(planName, dayName, date), null) ?: return null
         return try {
             val jsonArray = JSONArray(jsonStr)
             val list = mutableListOf<PlannedExercise>()
@@ -39,7 +44,8 @@ object CustomRoutinePreferences {
         context: Context,
         planName: String,
         dayName: String,
-        exercises: List<PlannedExercise>
+        exercises: List<PlannedExercise>,
+        date: String = AppDateManager.getTodayDate()
     ) {
         val jsonArray = JSONArray()
         exercises.forEach { ex ->
@@ -54,7 +60,7 @@ object CustomRoutinePreferences {
         }
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putString(getKey(planName, dayName), jsonArray.toString())
+            .putString(getKey(planName, dayName, date), jsonArray.toString())
             .apply()
     }
 
@@ -63,16 +69,17 @@ object CustomRoutinePreferences {
         planName: String,
         dayName: String,
         defaultExercises: List<PlannedExercise>,
-        newExercise: PlannedExercise
+        newExercise: PlannedExercise,
+        date: String = AppDateManager.getTodayDate()
     ): List<PlannedExercise> {
-        val currentList = (getCustomExercises(context, planName, dayName) ?: defaultExercises).toMutableList()
+        val currentList = (getCustomExercises(context, planName, dayName, date) ?: defaultExercises).toMutableList()
         val existingIndex = currentList.indexOfFirst { it.exerciseName.equals(newExercise.exerciseName, ignoreCase = true) }
         if (existingIndex >= 0) {
             currentList[existingIndex] = newExercise
         } else {
             currentList.add(newExercise)
         }
-        saveCustomExercises(context, planName, dayName, currentList)
+        saveCustomExercises(context, planName, dayName, currentList, date)
         return currentList
     }
 
@@ -81,11 +88,12 @@ object CustomRoutinePreferences {
         planName: String,
         dayName: String,
         defaultExercises: List<PlannedExercise>,
-        exerciseName: String
+        exerciseName: String,
+        date: String = AppDateManager.getTodayDate()
     ): List<PlannedExercise> {
-        val currentList = (getCustomExercises(context, planName, dayName) ?: defaultExercises).toMutableList()
+        val currentList = (getCustomExercises(context, planName, dayName, date) ?: defaultExercises).toMutableList()
         currentList.removeAll { it.exerciseName.equals(exerciseName, ignoreCase = true) }
-        saveCustomExercises(context, planName, dayName, currentList)
+        saveCustomExercises(context, planName, dayName, currentList, date)
         return currentList
     }
 
@@ -94,23 +102,29 @@ object CustomRoutinePreferences {
         planName: String,
         dayName: String,
         defaultExercises: List<PlannedExercise>,
-        updatedExercise: PlannedExercise
+        updatedExercise: PlannedExercise,
+        date: String = AppDateManager.getTodayDate()
     ): List<PlannedExercise> {
-        val currentList = (getCustomExercises(context, planName, dayName) ?: defaultExercises).toMutableList()
+        val currentList = (getCustomExercises(context, planName, dayName, date) ?: defaultExercises).toMutableList()
         val idx = currentList.indexOfFirst { it.exerciseName.equals(updatedExercise.exerciseName, ignoreCase = true) }
         if (idx >= 0) {
             currentList[idx] = updatedExercise
         } else {
             currentList.add(updatedExercise)
         }
-        saveCustomExercises(context, planName, dayName, currentList)
+        saveCustomExercises(context, planName, dayName, currentList, date)
         return currentList
     }
 
-    fun resetDayToDefault(context: Context, planName: String, dayName: String) {
+    fun resetDayToDefault(
+        context: Context,
+        planName: String,
+        dayName: String,
+        date: String = AppDateManager.getTodayDate()
+    ) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
-            .remove(getKey(planName, dayName))
+            .remove(getKey(planName, dayName, date))
             .apply()
     }
 }

@@ -108,12 +108,6 @@ private fun MacroItem(
             color = MaterialTheme.colorScheme.onSurface
         )
 
-        Text(
-            text = "of ${target.toInt()}g",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
         LinearProgressIndicator(
             progress = progress,
             modifier = Modifier

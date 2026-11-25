@@ -103,13 +103,6 @@ fun ProfileScreen(
     var selectedGoal by remember(profile.goal) { mutableStateOf(profile.goal) }
     var selectedWorkoutPlan by remember(profile.workoutPlan) { mutableStateOf(profile.workoutPlan) }
 
-    // Manual override state
-    var isManualOverride by remember { mutableStateOf(false) }
-    var customCalText by remember(profile.dailyCalorieTarget) { mutableStateOf(profile.dailyCalorieTarget.toString()) }
-    var customProteinText by remember(profile.dailyProteinTarget) { mutableStateOf(profile.dailyProteinTarget.toString()) }
-    var customCarbsText by remember(profile.dailyCarbsTarget) { mutableStateOf(profile.dailyCarbsTarget.toString()) }
-    var customFatText by remember(profile.dailyFatTarget) { mutableStateOf(profile.dailyFatTarget.toString()) }
-
     val context = LocalContext.current
     val hasNotificationPermission = remember(context) { NotificationHelper.isNotificationPermissionGranted(context) }
 
@@ -145,6 +138,10 @@ fun ProfileScreen(
     }
     var showAddWaterTimePicker by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var hapticsEnabled by remember { mutableStateOf(com.getfit.ui.util.HapticsPreferences.isHapticsEnabled(context)) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
+    var deleteConfirmEmail by remember { mutableStateOf("") }
+    var deleteAccountError by remember { mutableStateOf<String?>(null) }
 
     var showResetExercisesDialog by remember { mutableStateOf(false) }
     var showTrashDialog by remember { mutableStateOf(false) }
@@ -157,7 +154,14 @@ fun ProfileScreen(
     var showAvatarPicker by remember { mutableStateOf(false) }
     val avatarUpdateTrigger by AvatarManager.avatarUpdates.collectAsStateWithLifecycle()
     val currentAvatar = remember(avatarUpdateTrigger) { AvatarManager.getSelectedAvatar(context) }
-    val bestStreak = remember(avatarUpdateTrigger) { StreakManager.getBestStreak(context) }
+    val bestStreak = remember(avatarUpdateTrigger) { AvatarManager.getEffectiveBestStreak(context) }
+    var newlyUnlockedAvatar by remember { mutableStateOf<com.getfit.ui.util.ProfileAvatar?>(null) }
+
+    LaunchedEffect(bestStreak) {
+        if (newlyUnlockedAvatar == null) {
+            newlyUnlockedAvatar = AvatarManager.checkNewUnlock(context, bestStreak)
+        }
+    }
 
     LaunchedEffect(showSavedSnackbar, snackbarMessage) {
         if (showSavedSnackbar) {
@@ -261,24 +265,13 @@ fun ProfileScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(Dimens.md)
                 ) {
-                    // Avatar profile photo badge with streak tier glow
-                    Surface(
-                        shape = RoundedCornerShape(Dimens.lg),
-                        color = currentAvatar.accentColor.copy(alpha = 0.15f),
-                        border = BorderStroke(1.5.dp, currentAvatar.accentColor.copy(alpha = 0.5f)),
-                        modifier = Modifier
-                            .size(60.dp)
-                            .pressable(onClick = { showAvatarPicker = true })
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            com.getfit.ui.components.AvatarArtwork(
-                                avatarId = currentAvatar.id,
-                                accentColor = currentAvatar.accentColor,
-                                size = 48.dp,
-                                locked = false
-                            )
-                        }
-                    }
+                    // Avatar profile photo badge with streak tier ring
+                    com.getfit.ui.components.AvatarImage(
+                        avatar = currentAvatar,
+                        size = 60.dp,
+                        locked = false,
+                        modifier = Modifier.pressable(onClick = { showAvatarPicker = true })
+                    )
 
                     Column(
                         modifier = Modifier
@@ -316,34 +309,15 @@ fun ProfileScreen(
                                 Surface(
                                     shape = RoundedCornerShape(Dimens.xs),
                                     color = GetFitTheme.colors.accent.copy(alpha = 0.15f),
-                                    modifier = Modifier.pressable(onClick = { showSettingsDialog = true })
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.CloudDone,
-                                            contentDescription = null,
-                                            tint = GetFitTheme.colors.accent,
-                                            modifier = Modifier.size(10.dp)
-                                        )
-                                        Text(
-                                            text = "Synced",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            maxLines = 1,
-                                            softWrap = false,
-                                            color = GetFitTheme.colors.accent
-                                        )
-                                    }
-                                }
-                            } else {
-                                Surface(
-                                    shape = RoundedCornerShape(Dimens.xs),
-                                    color = GetFitTheme.colors.surface2,
-                                    modifier = Modifier.pressable(onClick = onNavigateToAuth)
+                                    modifier = Modifier.pressable(
+                                        enabled = !uiState.isSyncing,
+                                        onClick = {
+                                            viewModel.syncNow { _, msg ->
+                                                snackbarMessage = msg
+                                                showSavedSnackbar = true
+                                            }
+                                        }
+                                    )
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -353,16 +327,16 @@ fun ProfileScreen(
                                         Icon(
                                             Icons.Default.CloudSync,
                                             contentDescription = null,
-                                            tint = GetFitTheme.colors.textSecondary,
+                                            tint = GetFitTheme.colors.accent,
                                             modifier = Modifier.size(10.dp)
                                         )
                                         Text(
-                                            text = "Sync",
+                                            text = if (uiState.isSyncing) "Syncing..." else "Sync",
                                             style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Medium,
+                                            fontWeight = FontWeight.Bold,
                                             maxLines = 1,
                                             softWrap = false,
-                                            color = GetFitTheme.colors.textSecondary
+                                            color = GetFitTheme.colors.accent
                                         )
                                     }
                                 }
@@ -588,92 +562,6 @@ fun ProfileScreen(
                 }
             }
 
-            // Diet Plan Presets Quick Apply
-            GfOverline(text = "Or Choose a Preset Diet Plan")
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
-            ) {
-                listOf(2000, 2500, 3000, 3500).forEach { cal ->
-                    GfSecondaryButton(
-                        text = "$cal",
-                        compact = true,
-                        onClick = {
-                            viewModel.applyPresetDietPlan(cal)
-                            snackbarMessage = "Applied $cal kcal Diet Plan"
-                            showSavedSnackbar = true
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
-            // Manual Override Toggle
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Manual Target Override",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = GetFitTheme.colors.textPrimary
-                )
-                Switch(
-                    checked = isManualOverride,
-                    onCheckedChange = { isManualOverride = it },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = GetFitTheme.colors.onAccent,
-                        checkedTrackColor = GetFitTheme.colors.accent
-                    )
-                )
-            }
-
-            if (isManualOverride) {
-                GfTextField(
-                    value = customCalText,
-                    onValueChange = { customCalText = it },
-                    label = "Target Calories",
-                    suffix = "kcal",
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
-                ) {
-                    GfTextField(
-                        value = customProteinText,
-                        onValueChange = { customProteinText = it },
-                        label = "Protein",
-                        suffix = "g",
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    GfTextField(
-                        value = customCarbsText,
-                        onValueChange = { customCarbsText = it },
-                        label = "Carbs",
-                        suffix = "g",
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    GfTextField(
-                        value = customFatText,
-                        onValueChange = { customFatText = it },
-                        label = "Fat",
-                        suffix = "g",
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
             // Save Profile Button
             GfPrimaryButton(
                 text = "Save Profile & Calculate Plan",
@@ -692,10 +580,10 @@ fun ProfileScreen(
                         activityLevel = selectedActivity,
                         goal = selectedGoal,
                         workoutPlan = selectedWorkoutPlan,
-                        customCalories = if (isManualOverride) customCalText.toIntOrNull() else null,
-                        customProtein = if (isManualOverride) customProteinText.toIntOrNull() else null,
-                        customCarbs = if (isManualOverride) customCarbsText.toIntOrNull() else null,
-                        customFat = if (isManualOverride) customFatText.toIntOrNull() else null
+                        customCalories = null,
+                        customProtein = null,
+                        customCarbs = null,
+                        customFat = null
                     )
                     viewModel.updateMealSchedule("Breakfast", breakfastTime, breakfastReminderEnabled)
                     viewModel.updateMealSchedule("Lunch", lunchTime, lunchReminderEnabled)
@@ -798,18 +686,37 @@ fun ProfileScreen(
         }
     }
 
-    // Avatar Picker Dialog (1 month, 3 months, 6 months, 1 year streak unlocks)
+    // Avatar Picker Sheet (1 month, 3 months, 6 months, 1 year streak unlocks)
     if (showAvatarPicker) {
         AvatarPickerDialog(
             currentAvatar = currentAvatar,
             bestStreak = bestStreak,
             onSelectAvatar = { avatar ->
-                AvatarManager.setSelectedAvatarId(context, avatar.id)
-                showAvatarPicker = false
-                snackbarMessage = "Profile photo updated to ${avatar.name}!"
-                showSavedSnackbar = true
+                if (AvatarManager.setSelectedAvatarId(context, avatar.id)) {
+                    showAvatarPicker = false
+                    snackbarMessage = "Profile photo updated to ${avatar.name}!"
+                    showSavedSnackbar = true
+                }
             },
             onDismiss = { showAvatarPicker = false }
+        )
+    }
+
+    if (newlyUnlockedAvatar != null) {
+        val unlocked = newlyUnlockedAvatar!!
+        com.getfit.ui.components.AvatarUnlockSheet(
+            avatar = unlocked,
+            onEquipNow = {
+                AvatarManager.markUnlockSeen(context, unlocked.id)
+                AvatarManager.setSelectedAvatarId(context, unlocked.id)
+                newlyUnlockedAvatar = null
+                snackbarMessage = "Profile photo updated to ${unlocked.name}!"
+                showSavedSnackbar = true
+            },
+            onLater = {
+                AvatarManager.markUnlockSeen(context, unlocked.id)
+                newlyUnlockedAvatar = null
+            }
         )
     }
 
@@ -1305,6 +1212,41 @@ fun ProfileScreen(
 
                     Divider(color = GetFitTheme.colors.hairline, thickness = 1.dp)
 
+                    // Haptics & Feedback
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Haptic Feedback",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = GetFitTheme.colors.textPrimary
+                            )
+                            Text(
+                                text = "Tactile vibration on taps and navigation.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GetFitTheme.colors.textSecondary
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(Dimens.sm))
+                        Switch(
+                            checked = hapticsEnabled,
+                            onCheckedChange = { enabled ->
+                                hapticsEnabled = enabled
+                                com.getfit.ui.util.HapticsPreferences.setHapticsEnabled(context, enabled)
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = GetFitTheme.colors.onAccent,
+                                checkedTrackColor = GetFitTheme.colors.accent
+                            )
+                        )
+                    }
+
+                    Divider(color = GetFitTheme.colors.hairline, thickness = 1.dp)
+
                     // Library & Recovery
                     Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
                         GfOverline(text = "Library & Recovery")
@@ -1426,6 +1368,43 @@ fun ProfileScreen(
                         }
                     }
 
+                    if (uiState.isLoggedIn) {
+                        Divider(color = GetFitTheme.colors.hairline, thickness = 1.dp)
+
+                        Column(verticalArrangement = Arrangement.spacedBy(Dimens.sm)) {
+                            GfOverline(text = "Account")
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Delete Account",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = GetFitTheme.colors.danger
+                                    )
+                                    Text(
+                                        text = "Permanently remove your account and cloud data.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = GetFitTheme.colors.textSecondary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(Dimens.sm))
+                                GfSecondaryButton(
+                                    text = "Delete",
+                                    compact = true,
+                                    onClick = {
+                                        deleteConfirmEmail = ""
+                                        deleteAccountError = null
+                                        showDeleteAccountDialog = true
+                                    }
+                                )
+                            }
+                        }
+                    }
+
                     GfPrimaryButton(
                         text = "Done",
                         onClick = { showSettingsDialog = false },
@@ -1434,6 +1413,72 @@ fun ProfileScreen(
                 }
             }
         }
+    }
+
+    if (showDeleteAccountDialog) {
+        val accountEmail = uiState.userEmail.orEmpty()
+        val emailMatches = accountEmail.isNotBlank() &&
+            deleteConfirmEmail.trim().equals(accountEmail.trim(), ignoreCase = true)
+        AlertDialog(
+            onDismissRequest = { if (!uiState.isSyncing) showDeleteAccountDialog = false },
+            containerColor = GetFitTheme.colors.surface1,
+            titleContentColor = GetFitTheme.colors.textPrimary,
+            textContentColor = GetFitTheme.colors.textSecondary,
+            title = { Text("Delete Account Permanently?", style = MaterialTheme.typography.titleLarge) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
+                    Text(
+                        text = "This will permanently delete your account and all synced data from Cloudflare. Enter your email ($accountEmail) to confirm.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GetFitTheme.colors.textSecondary
+                    )
+                    GfTextField(
+                        value = deleteConfirmEmail,
+                        onValueChange = {
+                            deleteConfirmEmail = com.getfit.ui.util.InputSanitizer.sanitizeEmailInput(it)
+                            deleteAccountError = null
+                        },
+                        label = "Confirm Email Address",
+                        placeholder = accountEmail,
+                        imeAction = ImeAction.Done,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (!deleteAccountError.isNullOrBlank()) {
+                        Text(
+                            text = deleteAccountError!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GetFitTheme.colors.danger
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                GfTextButton(
+                    text = if (uiState.isSyncing) "Deleting..." else "Delete Account",
+                    color = if (emailMatches && !uiState.isSyncing) GetFitTheme.colors.danger else GetFitTheme.colors.textTertiary,
+                    enabled = emailMatches && !uiState.isSyncing,
+                    onClick = {
+                        viewModel.deleteAccount(deleteConfirmEmail) { success, msg ->
+                            if (success) {
+                                showDeleteAccountDialog = false
+                                showSettingsDialog = false
+                                onLogout()
+                            } else {
+                                deleteAccountError = msg
+                            }
+                        }
+                    }
+                )
+            },
+            dismissButton = {
+                GfTextButton(
+                    text = "Cancel",
+                    color = GetFitTheme.colors.textSecondary,
+                    enabled = !uiState.isSyncing,
+                    onClick = { showDeleteAccountDialog = false }
+                )
+            }
+        )
     }
 
     if (showAddWaterTimePicker) {

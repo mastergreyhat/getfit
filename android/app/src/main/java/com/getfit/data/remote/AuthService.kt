@@ -61,7 +61,7 @@ object AuthService {
         return false
     }
 
-    suspend fun sendOtp(email: String): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun sendOtp(email: String, purpose: String = "register"): Result<String> = withContext(Dispatchers.IO) {
         val trimmed = email.trim().lowercase()
         if (isDisposableEmail(trimmed)) {
             return@withContext Result.failure(Exception("Temporary and disposable email addresses are not allowed. Please enter your real email address."))
@@ -70,6 +70,7 @@ object AuthService {
         try {
             val body = JSONObject().apply {
                 put("email", trimmed)
+                put("purpose", purpose)
             }
             val (code, responseStr) = executeHttp("$BASE_URL/api/auth/send-otp", "POST", body.toString(), null)
             if (code in 200..299) {
@@ -117,6 +118,48 @@ object AuthService {
             parseAuthResponse(response)
         } catch (e: Exception) {
             Log.e(TAG, "Login error: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun resetPassword(email: String, otp: String, newPassword: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val body = JSONObject().apply {
+                put("email", email.trim().lowercase())
+                put("otp", otp.trim())
+                put("newPassword", newPassword)
+            }
+            val (code, responseStr) = postJson("$BASE_URL/api/auth/reset-password", body.toString())
+            if (code in 200..299) {
+                val json = JSONObject(responseStr)
+                Result.success(json.optString("message", "Password reset successfully. You can now log in."))
+            } else {
+                Result.failure(Exception(parseError(responseStr, "Password reset failed ($code)")))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Reset password error: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteAccount(token: String, confirmEmail: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val body = JSONObject().apply {
+                put("email", confirmEmail.trim().lowercase())
+            }
+            val (code, responseStr) = executeHttp(
+                urlStr = "$BASE_URL/api/auth/delete-account",
+                method = "POST",
+                payload = body.toString(),
+                token = token
+            )
+            if (code in 200..299) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(parseError(responseStr, "Delete account failed ($code)")))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Delete account error: ${e.message}", e)
             Result.failure(e)
         }
     }

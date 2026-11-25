@@ -1211,197 +1211,189 @@ private fun WorkoutProgressTab(
                 )
             }
         } else {
-            itemsIndexed(
-                pbEntries,
-                key = { idx, entry -> "pb_${entry.key}_$idx" },
-                contentType = { _, _ -> "personal_best" }
-            ) { _, entry ->
-                val exerciseName = exerciseNameById[entry.key] ?: "Exercise"
+            item(key = "personal_records_card") {
+                GfCard(modifier = Modifier.fillMaxWidth()) {
+                    Column {
+                        Text(
+                            text = "Personal Records",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GetFitTheme.colors.textPrimary
+                        )
+                        Text(
+                            text = "${pbEntries.size} exercises",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GetFitTheme.colors.textSecondary
+                        )
+                    }
 
-                GfCard(
-                    cornerRadius = Dimens.lg,
-                    contentPadding = PaddingValues(Dimens.lg),
-                    useGradient = false,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Spacer(modifier = Modifier.height(Dimens.sm))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(0.5.dp)
+                            .background(GetFitTheme.colors.hairline)
+                    )
+                    Spacer(modifier = Modifier.height(Dimens.sm))
+
+                    pbEntries.forEachIndexed { idx, entry ->
+                        if (idx > 0) {
+                            Spacer(modifier = Modifier.height(Dimens.xs))
+                        }
+                        val exerciseName = exerciseNameById[entry.key] ?: "Exercise"
+                        val weightStr = if (entry.value % 1.0 == 0.0) "${entry.value.toInt()}" else "${entry.value}"
                         Row(
-                            modifier = Modifier.weight(1f).padding(end = Dimens.sm),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(Dimens.md)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.EmojiEvents,
-                                contentDescription = null,
-                                tint = GetFitTheme.colors.calories
-                            )
                             Text(
                                 text = exerciseName,
-                                style = MaterialTheme.typography.bodyLarge,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = GetFitTheme.colors.textPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f).padding(end = Dimens.sm)
+                            )
+                            Text(
+                                text = "$weightStr kg",
+                                style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.SemiBold,
-                                color = GetFitTheme.colors.textPrimary
+                                color = GetFitTheme.colors.textSecondary,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
-                        Text(
-                            text = "${entry.value} kg",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = GetFitTheme.colors.success
-                        )
                     }
                 }
             }
         }
 
         // Timed Records (Planks & Holds) Section
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = Dimens.sm),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Timer,
-                        contentDescription = null,
-                        tint = GetFitTheme.colors.success
-                    )
-                    Text(
-                        text = "Timed Records (Planks & Holds)",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = GetFitTheme.colors.textPrimary
-                    )
-                }
-                if (uiState.stopwatchRecords.isNotEmpty()) {
-                    Text(
-                        text = "${uiState.stopwatchRecords.size} logged",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = GetFitTheme.colors.textSecondary
-                    )
-                }
-            }
-        }
-
         if (uiState.stopwatchRecords.isEmpty()) {
             item {
-                GfCard(
-                    cornerRadius = Dimens.lg,
-                    contentPadding = PaddingValues(Dimens.lg),
-                    useGradient = false,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                GfCard(modifier = Modifier.fillMaxWidth()) {
+                    Column {
                         Text(
-                            text = "No timed records saved yet.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
+                            text = "Timed Records",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
                             color = GetFitTheme.colors.textPrimary
                         )
                         Text(
-                            text = "Use the stopwatch in workouts to time and save planks, wall sits, dead hangs, and other holds!",
+                            text = "Planks & holds",
                             style = MaterialTheme.typography.bodySmall,
                             color = GetFitTheme.colors.textSecondary
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(Dimens.sm))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(0.5.dp)
+                            .background(GetFitTheme.colors.hairline)
+                    )
+                    Spacer(modifier = Modifier.height(Dimens.sm))
+
+                    Text(
+                        text = "No timed records saved yet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GetFitTheme.colors.textTertiary
+                    )
                 }
             }
         } else {
-            itemsIndexed(uiState.stopwatchRecords, key = { idx, record -> "stopwatch_${record.id}_$idx" }) { _, record ->
-                val isBest = bestTimedPerTitle[record.title.trim().lowercase()] == record.elapsedMillis
+            item(key = "timed_records_card") {
+                GfCard(modifier = Modifier.fillMaxWidth()) {
+                    Column {
+                        Text(
+                            text = "Timed Records",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GetFitTheme.colors.textPrimary
+                        )
+                        Text(
+                            text = "Planks & holds",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GetFitTheme.colors.textSecondary
+                        )
+                    }
 
-                GfCard(
-                    cornerRadius = Dimens.lg,
-                    contentPadding = PaddingValues(Dimens.lg),
-                    useGradient = false,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Spacer(modifier = Modifier.height(Dimens.sm))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(0.5.dp)
+                            .background(GetFitTheme.colors.hairline)
+                    )
+                    Spacer(modifier = Modifier.height(Dimens.sm))
+
+                    uiState.stopwatchRecords.forEachIndexed { idx, record ->
+                        if (idx > 0) {
+                            Spacer(modifier = Modifier.height(Dimens.xs))
+                        }
+                        val isBest = bestTimedPerTitle[record.title.trim().lowercase()] == record.elapsedMillis
                         Row(
-                            modifier = Modifier.weight(1f).padding(end = Dimens.sm),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(Dimens.md)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(GetFitTheme.colors.surface2),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Timer,
-                                    contentDescription = null,
-                                    tint = if (isBest) GetFitTheme.colors.calories else GetFitTheme.colors.accent,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Column {
+                            Column(modifier = Modifier.weight(1f).padding(end = Dimens.sm)) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
                                 ) {
                                     Text(
                                         text = record.title,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = GetFitTheme.colors.textPrimary
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = GetFitTheme.colors.textPrimary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     if (isBest) {
-                                        Surface(
-                                            shape = RoundedCornerShape(Dimens.xs),
-                                            color = GetFitTheme.colors.calories.copy(alpha = 0.15f)
-                                        ) {
-                                            Text(
-                                                text = "Best",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = GetFitTheme.colors.calories,
-                                                modifier = Modifier.padding(horizontal = Dimens.xs, vertical = 2.dp)
-                                            )
-                                        }
+                                        Text(
+                                            text = "• Best",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = GetFitTheme.colors.calories,
+                                            maxLines = 1
+                                        )
                                     }
                                 }
                                 Text(
                                     text = record.date,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = GetFitTheme.colors.textSecondary
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = GetFitTheme.colors.textSecondary,
+                                    maxLines = 1
                                 )
                             }
-                        }
 
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
-                        ) {
-                            Text(
-                                text = record.formattedTime,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = GetFitTheme.colors.success
-                            )
-                            IconButton(
-                                onClick = { onDeleteStopwatchRecord(record) },
-                                modifier = Modifier.size(32.dp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Delete record",
-                                    tint = GetFitTheme.colors.danger.copy(alpha = 0.8f),
-                                    modifier = Modifier.size(18.dp)
+                                Text(
+                                    text = record.formattedTime,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = GetFitTheme.colors.textSecondary,
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
+                                IconButton(
+                                    onClick = { onDeleteStopwatchRecord(record) },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete record",
+                                        tint = GetFitTheme.colors.danger.copy(alpha = 0.8f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -1470,108 +1462,70 @@ private fun WorkoutProgressTab(
                     val totalSets = logs.size
                     val exerciseCount = groupedByExercise.size
 
-                    GfCard(
-                        cornerRadius = Dimens.lg,
-                        contentPadding = PaddingValues(Dimens.lg),
-                        useGradient = false,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
-                            // Date header row with summary pill badges
+                    GfCard(modifier = Modifier.fillMaxWidth()) {
+                        Column {
+                            Text(
+                                text = AppDateManager.getDateDisplayLabel(date),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = GetFitTheme.colors.textPrimary
+                            )
+                            Text(
+                                text = if (totalVolume > 0) {
+                                    "$exerciseCount exercises • $totalSets sets • ${totalVolume.toInt()} kg"
+                                } else {
+                                    "$exerciseCount exercises • $totalSets sets"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GetFitTheme.colors.textSecondary
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(Dimens.sm))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(0.5.dp)
+                                .background(GetFitTheme.colors.hairline)
+                        )
+                        Spacer(modifier = Modifier.height(Dimens.sm))
+
+                        groupedByExercise.entries.forEachIndexed { idx, (exName, exSets) ->
+                            if (idx > 0) {
+                                Spacer(modifier = Modifier.height(Dimens.xs))
+                            }
+                            val setsSummary = remember(exSets) {
+                                val allSameWeight = exSets.all { it.weight == exSets.first().weight }
+                                val allSameReps = exSets.all { it.reps == exSets.first().reps }
+                                fun fmtW(w: Double) = if (w % 1.0 == 0.0) "${w.toInt()}" else "$w"
+                                if (allSameWeight && allSameReps && exSets.isNotEmpty()) {
+                                    "${exSets.size}×${fmtW(exSets.first().weight)}kg · ${exSets.first().reps} reps"
+                                } else {
+                                    val maxWeight = exSets.maxOfOrNull { it.weight } ?: 0.0
+                                    "${exSets.size} sets · Top ${fmtW(maxWeight)}kg"
+                                }
+                            }
+
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(Dimens.sm)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CalendarMonth,
-                                        contentDescription = null,
-                                        tint = GetFitTheme.colors.accent,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Text(
-                                        text = AppDateManager.getDateDisplayLabel(date),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = GetFitTheme.colors.textPrimary
-                                    )
-                                }
-
-                                Surface(
-                                    shape = RoundedCornerShape(Dimens.xs),
-                                    color = GetFitTheme.colors.success.copy(alpha = 0.12f),
-                                    border = BorderStroke(0.5.dp, GetFitTheme.colors.success.copy(alpha = 0.3f))
-                                ) {
-                                    Text(
-                                        text = "$exerciseCount Ex • $totalSets Sets",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = GetFitTheme.colors.success,
-                                        modifier = Modifier.padding(horizontal = Dimens.sm, vertical = 3.dp)
-                                    )
-                                }
-                            }
-
-                            Divider(color = GetFitTheme.colors.hairline, thickness = 1.dp)
-
-                            // Concise list of exercises completed on this date
-                            groupedByExercise.forEach { (exName, exSets) ->
-                                val maxWeight = exSets.maxOfOrNull { it.weight } ?: 0.0
-                                val setsSummary = remember(exSets) {
-                                    val allSameWeight = exSets.all { it.weight == exSets.first().weight }
-                                    val allSameReps = exSets.all { it.reps == exSets.first().reps }
-                                    if (allSameWeight && allSameReps && exSets.isNotEmpty()) {
-                                        "${exSets.size} sets × ${exSets.first().weight.toInt()}kg (${exSets.first().reps} reps)"
-                                    } else {
-                                        "${exSets.size} sets • Top ${maxWeight.toInt()}kg"
-                                    }
-                                }
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
-                                        ) {
-                                            GfCheckBadge(checked = true, size = 18.dp)
-                                            Text(
-                                                text = exName,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.SemiBold,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                color = GetFitTheme.colors.textPrimary
-                                            )
-                                        }
-                                        Text(
-                                            text = setsSummary,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            color = GetFitTheme.colors.textSecondary
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(Dimens.sm))
-                                    GfStatusPill(text = "${maxWeight.toInt()}kg")
-                                }
-                            }
-
-                            if (totalVolume > 0) {
                                 Text(
-                                    text = "Total volume lifted: ${totalVolume.toInt()} kg",
-                                    style = MaterialTheme.typography.labelSmall,
+                                    text = exName,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Medium,
+                                    color = GetFitTheme.colors.textPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f).padding(end = Dimens.sm)
+                                )
+                                Text(
+                                    text = setsSummary,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = GetFitTheme.colors.textSecondary,
-                                    modifier = Modifier.align(Alignment.End)
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                             }
                         }
@@ -1862,13 +1816,6 @@ private fun ModifyTodayExerciseDialog(
                     imeAction = ImeAction.Done,
                     modifier = Modifier.fillMaxWidth()
                 )
-                if (onResetLog != null) {
-                    GfSecondaryButton(
-                        text = "Reset Log",
-                        compact = true,
-                        onClick = onResetLog
-                    )
-                }
             }
         },
         confirmButton = {
@@ -1881,13 +1828,15 @@ private fun ModifyTodayExerciseDialog(
                 }
             )
         },
-        dismissButton = {
-            GfTextButton(
-                text = "Delete",
-                color = GetFitTheme.colors.danger,
-                onClick = onRemoveFromToday
-            )
-        }
+        dismissButton = if (onResetLog != null) {
+            {
+                GfTextButton(
+                    text = "Reset Log",
+                    color = GetFitTheme.colors.danger,
+                    onClick = onResetLog
+                )
+            }
+        } else null
     )
 }
 

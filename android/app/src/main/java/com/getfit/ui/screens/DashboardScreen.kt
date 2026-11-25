@@ -74,9 +74,36 @@ fun DashboardScreen(
     onScrollChanged: (Boolean) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val scrollState = rememberScrollState()
     val haptic = LocalHapticFeedback.current
     var showCalendarDialog by remember { mutableStateOf(false) }
+
+    val avatarUpdateTrigger by com.getfit.ui.util.AvatarManager.avatarUpdates.collectAsStateWithLifecycle()
+    val effectiveBestStreak = remember(uiState.bestStreak, avatarUpdateTrigger) {
+        maxOf(uiState.bestStreak, com.getfit.ui.util.AvatarManager.getEffectiveBestStreak(context))
+    }
+    var newlyUnlockedAvatar by remember { mutableStateOf<com.getfit.ui.util.ProfileAvatar?>(null) }
+    LaunchedEffect(effectiveBestStreak) {
+        if (newlyUnlockedAvatar == null) {
+            newlyUnlockedAvatar = com.getfit.ui.util.AvatarManager.checkNewUnlock(context, effectiveBestStreak)
+        }
+    }
+    if (newlyUnlockedAvatar != null) {
+        val unlocked = newlyUnlockedAvatar!!
+        com.getfit.ui.components.AvatarUnlockSheet(
+            avatar = unlocked,
+            onEquipNow = {
+                com.getfit.ui.util.AvatarManager.markUnlockSeen(context, unlocked.id)
+                com.getfit.ui.util.AvatarManager.setSelectedAvatarId(context, unlocked.id)
+                newlyUnlockedAvatar = null
+            },
+            onLater = {
+                com.getfit.ui.util.AvatarManager.markUnlockSeen(context, unlocked.id)
+                newlyUnlockedAvatar = null
+            }
+        )
+    }
 
     LaunchedEffect(scrollState) {
         snapshotFlow { scrollState.value > 0 }.collect { onScrollChanged(it) }

@@ -351,6 +351,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             repository.logWater(getTodayDate(), amountMl)
             StreakManager.recordLogAction(getApplication(), getTodayDate())
+            com.getfit.data.sync.CloudSyncManager.triggerSilentUpload(getApplication(), repository)
         }
     }
 

@@ -1,9 +1,6 @@
 package com.getfit.ui.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -12,15 +9,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.getfit.data.entity.Exercise
 import com.getfit.ui.components.core.GfCheckBadge
+import com.getfit.ui.components.core.pressable
 import com.getfit.ui.theme.GetFitTheme
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ExerciseCard(
     exercise: Exercise,
@@ -32,20 +30,14 @@ fun ExerciseCard(
     targetSetsReps: String? = null,
     isCompleted: Boolean = false
 ) {
-    val clickModifier = if (onLongClick != null) {
-        Modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = onLongClick
-        )
-    } else {
-        Modifier.clickable(onClick = onClick)
-    }
+    val shape = RoundedCornerShape(14.dp)
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .then(clickModifier),
-        shape = RoundedCornerShape(14.dp),
+            .clip(shape)
+            .pressable(onClick = onClick, onLongClick = onLongClick),
+        shape = shape,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),

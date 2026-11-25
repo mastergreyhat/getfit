@@ -118,6 +118,17 @@ fun GetFitNavHost(
     navController: NavHostController = rememberNavController()
 ) {
     val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        com.getfit.ui.util.HapticsPreferences.init(context)
+    }
+    val hapticsEnabled by com.getfit.ui.util.HapticsPreferences.hapticsEnabled.collectAsState()
+    val defaultHaptics = LocalHapticFeedback.current
+    val resolvedHaptics = remember(hapticsEnabled, defaultHaptics) {
+        if (hapticsEnabled) defaultHaptics else object : androidx.compose.ui.hapticfeedback.HapticFeedback {
+            override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {}
+        }
+    }
+
     val startDestination = remember {
         if (AuthPreferences.isLoggedIn(context) || OnboardingPreferences.hasCompletedOnboarding(context)) {
             Screen.Dashboard.route
@@ -161,6 +172,7 @@ fun GetFitNavHost(
     }
 
     val focusManager = LocalFocusManager.current
+    androidx.compose.runtime.CompositionLocalProvider(LocalHapticFeedback provides resolvedHaptics) {
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -222,7 +234,6 @@ fun GetFitNavHost(
             }
 
             composable(Screen.Auth.route) {
-                val profileViewModel: ProfileViewModel = viewModel()
                 val canGoBack = navController.previousBackStackEntry != null && 
                     navController.previousBackStackEntry?.destination?.route != Screen.OnboardingWelcome.route
                 GfScreenSurface {
@@ -255,7 +266,6 @@ fun GetFitNavHost(
             }
 
             composable(Screen.OnboardingProfile.route) {
-                val profileViewModel: ProfileViewModel = viewModel()
                 GfScreenSurface {
                     OnboardingProfileScreen(
                         viewModel = profileViewModel,
@@ -481,5 +491,6 @@ fun GetFitNavHost(
                 )
             }
         }
+    }
     }
 }

@@ -33,4 +33,14 @@ class InputSanitizerTest {
         assertNotNull(InputSanitizer.validateName("---"))
         assertNull(InputSanitizer.validateName("Aswin Vijay"))
     }
+
+    @Test
+    fun email_stripsEmojisSpacesAndEnforcesGmailOnly() {
+        assertEquals("user.name+1@gmail.com", InputSanitizer.sanitizeEmailInput(" User.Name+1😀@gmail.com "))
+        assertNull(InputSanitizer.validateEmail("aswin.vijay@gmail.com"))
+        assertNotNull(InputSanitizer.validateEmail("user@yahoo.com"))
+        assertNotNull(InputSanitizer.validateEmail("user@tempmail.com"))
+        assertNotNull(InputSanitizer.validateEmail(".bad@gmail.com"))
+        assertNotNull(InputSanitizer.validateEmail("bad..dot@gmail.com"))
+    }
 }

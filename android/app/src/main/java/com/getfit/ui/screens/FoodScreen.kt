@@ -882,15 +882,19 @@ private fun MyFitnessPalDiaryTabContent(
                         color = GetFitTheme.colors.textTertiary
                     )
                 } else {
-                    groupedWorkouts.forEach { (exName, sets) ->
-                        Spacer(modifier = Modifier.height(Dimens.sm))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(0.5.dp)
-                                .background(GetFitTheme.colors.hairline)
-                        )
-                        Spacer(modifier = Modifier.height(Dimens.sm))
+                    Spacer(modifier = Modifier.height(Dimens.sm))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(0.5.dp)
+                            .background(GetFitTheme.colors.hairline)
+                    )
+                    Spacer(modifier = Modifier.height(Dimens.sm))
+
+                    groupedWorkouts.entries.forEachIndexed { idx, (exName, sets) ->
+                        if (idx > 0) {
+                            Spacer(modifier = Modifier.height(Dimens.xs))
+                        }
 
                         val setSummary = remember(sets) {
                             val allSameWeight = sets.all { it.weight == sets.first().weight }

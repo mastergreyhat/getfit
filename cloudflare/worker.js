@@ -18,7 +18,7 @@ export default {
       return new Response(null, {
         headers: {
           "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type, Authorization",
           "Access-Control-Max-Age": "86400",
         },
@@ -59,6 +59,13 @@ export default {
     if (path === "/api/auth/login" && request.method === "POST") {
       return handleLogin(request, env);
     }
+    if (path === "/api/auth/reset-password" && request.method === "POST") {
+      return handleResetPassword(request, env);
+    }
+    if ((path === "/api/auth/delete-account" && request.method === "POST") ||
+        (path === "/api/auth/account" && request.method === "DELETE")) {
+      return handleDeleteAccount(request, env);
+    }
 
     // 5. Cloud Data Sync Endpoints
     if (path === "/api/sync") {
@@ -92,10 +99,18 @@ const DISPOSABLE_EMAIL_DOMAINS = new Set([
   "inbox.si", "disposable.com", "fakeemail.com"
 ]);
 
+function isAllowedGmail(email) {
+  return /^[a-z0-9._+-]{1,64}@gmail\.com$/.test(email) &&
+    !email.startsWith(".") &&
+    !email.includes("..") &&
+    !email.includes(".@");
+}
+
 function isDisposableEmail(email) {
   const parts = email.toLowerCase().split("@");
   if (parts.length !== 2) return true;
   const domain = parts[1].trim();
+  if (domain !== "gmail.com") return true;
   if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) return true;
   if (
     domain.includes("tempmail") ||
@@ -126,8 +141,9 @@ async function handleSendOtp(request, env) {
   }
 
   const email = (body.email || "").trim().toLowerCase();
-  if (!email || !email.includes("@") || email.length < 5) {
-    return jsonResponse({ error: "Please enter a valid email address." }, 400);
+  const purpose = body.purpose === "reset" ? "reset" : "register";
+  if (!email || !isAllowedGmail(email)) {
+    return jsonResponse({ error: "Only @gmail.com email addresses are allowed." }, 400);
   }
 
   // Check if disposable email
@@ -137,10 +153,12 @@ async function handleSendOtp(request, env) {
     }, 400);
   }
 
-  // Check if user already exists
   const existing = await env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
-  if (existing) {
+  if (purpose === "register" && existing) {
     return jsonResponse({ error: "An account with this email already exists. Please log in." }, 409);
+  }
+  if (purpose === "reset" && !existing) {
+    return jsonResponse({ error: "No account found with this email." }, 404);
   }
 
   // Anti-Spam: Rate limit by client IP (max 5 OTP emails per 10 minutes per IP) to prevent relay bombing
@@ -270,8 +288,8 @@ async function handleRegister(request, env) {
   const name = (body.name || "").trim() || email.split("@")[0] || "User";
   const otp = (body.otp || "").trim();
 
-  if (!email || !email.includes("@")) {
-    return jsonResponse({ error: "Valid email address is required" }, 400);
+  if (!email || !isAllowedGmail(email)) {
+    return jsonResponse({ error: "Only @gmail.com email addresses are allowed." }, 400);
   }
   if (!password || password.length < 6) {
     return jsonResponse({ error: "Password must be at least 6 characters" }, 400);
@@ -855,4 +873,106 @@ Ensure "meals" has exactly 4 entries in order: Breakfast, Lunch, Dinner, Snacks.
   } catch (err) {
     return jsonResponse({ error: "Meal plan generation failed", details: err.message }, 500);
   }
+}
+
+/* ========================================================================== */
+/*                              DELETE ACCOUNT                                */
+/* ========================================================================== */
+
+async function handleResetPassword(request, env) {
+  if (!env.DB) return dbMissingResponse();
+  await ensureDbTables(env.DB);
+
+  let body;
+  try {
+    body = await request.json();
+  } catch (_) {
+    return jsonResponse({ error: "Invalid JSON body" }, 400);
+  }
+
+  const email = (body.email || "").trim().toLowerCase();
+  const otp = (body.otp || "").trim();
+  const newPassword = body.newPassword || "";
+
+  if (!email || !isAllowedGmail(email)) {
+    return jsonResponse({ error: "Only @gmail.com email addresses are allowed." }, 400);
+  }
+  if (!otp || otp.length < 4) {
+    return jsonResponse({ error: "6-digit verification code is required." }, 400);
+  }
+  if (!newPassword || newPassword.length < 6) {
+    return jsonResponse({ error: "Password must be at least 6 characters." }, 400);
+  }
+
+  const existing = await env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+  if (!existing) {
+    return jsonResponse({ error: "No account found with this email." }, 404);
+  }
+
+  const otpRow = await env.DB.prepare(
+    "SELECT otp_code, expires_at FROM email_otps WHERE email = ?"
+  ).bind(email).first();
+
+  if (!otpRow || otpRow.otp_code !== otp) {
+    const attemptsAllowed = await checkRateLimit(env.DB, `otp_fail:${email}`, 3, 5 * 60 * 1000);
+    if (!attemptsAllowed) {
+      await env.DB.prepare("DELETE FROM email_otps WHERE email = ?").bind(email).run();
+      return jsonResponse({ error: "Too many incorrect attempts. Verification code revoked. Please request a new code." }, 429);
+    }
+    return jsonResponse({ error: "Invalid verification code. Please check your email or request a new one." }, 400);
+  }
+  if (Date.now() > otpRow.expires_at) {
+    return jsonResponse({ error: "Verification code has expired (60s limit). Please tap 'Resend Code'." }, 400);
+  }
+
+  await env.DB.prepare("DELETE FROM email_otps WHERE email = ?").bind(email).run();
+
+  const salt = generateSalt();
+  const passwordHash = await hashPassword(newPassword, salt);
+  await env.DB.prepare(
+    "UPDATE users SET password_hash = ?, salt = ? WHERE id = ?"
+  ).bind(passwordHash, salt, existing.id).run();
+
+  return jsonResponse({
+    success: true,
+    message: "Password reset successfully. You can now log in."
+  });
+}
+
+async function handleDeleteAccount(request, env) {
+  const user = await authenticateRequest(request, env);
+  if (!user) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
+  }
+  if (!env.DB) return dbMissingResponse();
+  await ensureDbTables(env.DB);
+
+  let body = {};
+  try {
+    body = await request.json();
+  } catch (_) {
+    return jsonResponse({ error: "Invalid JSON body" }, 400);
+  }
+
+  const confirmEmail = String(body.email || "").trim().toLowerCase();
+  const dbUser = await env.DB.prepare("SELECT id, email FROM users WHERE id = ?").bind(user.sub).first();
+  if (!dbUser) {
+    return jsonResponse({ error: "Account not found" }, 404);
+  }
+
+  if (!confirmEmail || confirmEmail !== String(dbUser.email || "").trim().toLowerCase()) {
+    return jsonResponse({ error: "Entered email does not match your account email." }, 400);
+  }
+
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM user_backups WHERE user_id = ?").bind(dbUser.id),
+    env.DB.prepare("DELETE FROM email_otps WHERE email = ?").bind(dbUser.email),
+    env.DB.prepare("DELETE FROM rate_limits WHERE key = ? OR key = ?").bind(`mealplan_user:${dbUser.id}`, `otp_fail:${dbUser.email}`),
+    env.DB.prepare("DELETE FROM users WHERE id = ?").bind(dbUser.id)
+  ]);
+
+  return jsonResponse({
+    success: true,
+    message: "Account and all cloud data permanently deleted."
+  });
 }

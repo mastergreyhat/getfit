@@ -61,6 +61,9 @@ fun AuthScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     var isSignUpMode by remember { mutableStateOf(false) }
+    var isForgotPasswordMode by remember { mutableStateOf(false) }
+    var resetOtpSent by remember { mutableStateOf(false) }
+    var newPassword by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
@@ -71,8 +74,8 @@ fun AuthScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(otpSent, resendAttempts) {
-        if (otpSent) {
+    LaunchedEffect(otpSent, resetOtpSent, resendAttempts) {
+        if (otpSent || resetOtpSent) {
             countdownSeconds = 60
             while (countdownSeconds > 0) {
                 delay(1000L)
@@ -188,7 +191,163 @@ fun AuthScreen(
             }
 
             // Form Content
-            if (!isSignUpMode) {
+            if (isForgotPasswordMode) {
+                // FORGOT PASSWORD (OTP RESET)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.md)
+                ) {
+                    if (!resetOtpSent) {
+                        Text(
+                            text = "Reset your password using a 6-digit verification code sent to your Gmail.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GetFitTheme.colors.textSecondary
+                        )
+
+                        GfTextField(
+                            value = email,
+                            onValueChange = { raw ->
+                                val sanitized = com.getfit.ui.util.InputSanitizer.sanitizeEmailInput(raw)
+                                email = sanitized
+                                errorMessage = if (sanitized != raw.lowercase()) {
+                                    "Spaces, emojis, and unsupported characters are not allowed in email."
+                                } else null
+                            },
+                            label = "Gmail Address",
+                            placeholder = "example@gmail.com",
+                            leadingIcon = Icons.Default.Email,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        GfPrimaryButton(
+                            text = "Send Verification Code",
+                            isLoading = uiState.isSyncing,
+                            enabled = !uiState.isSyncing && email.isNotBlank(),
+                            onClick = {
+                                val trimmedEmail = email.trim()
+                                com.getfit.ui.util.InputSanitizer.validateEmail(trimmedEmail)?.let {
+                                    errorMessage = it
+                                    return@GfPrimaryButton
+                                }
+                                errorMessage = null
+                                viewModel.sendOtp(trimmedEmail, purpose = "reset") { success, msg ->
+                                    if (success) {
+                                        otpCode = ""
+                                        newPassword = ""
+                                        resendAttempts = 0
+                                        resetOtpSent = true
+                                    } else {
+                                        errorMessage = msg
+                                    }
+                                }
+                            }
+                        )
+                    } else {
+                        Text(
+                            text = "Enter the 6-digit code sent to ${email.trim()} and choose a new password.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GetFitTheme.colors.textSecondary
+                        )
+
+                        GfTextField(
+                            value = otpCode,
+                            onValueChange = { if (it.length <= 6 && it.all { ch -> ch.isDigit() }) { otpCode = it; errorMessage = null } },
+                            label = "6-Digit Code",
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        GfTextField(
+                            value = newPassword,
+                            onValueChange = { raw ->
+                                val sanitized = com.getfit.ui.util.InputSanitizer.sanitizePasswordInput(raw)
+                                newPassword = sanitized
+                                errorMessage = if (sanitized != raw) {
+                                    "Spaces and unsupported characters are not allowed in passwords."
+                                } else null
+                            },
+                            label = "New Password (min 6 characters)",
+                            leadingIcon = Icons.Default.Lock,
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = { passwordVisible = !passwordVisible },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                                        tint = GetFitTheme.colors.textSecondary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            },
+                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        GfPrimaryButton(
+                            text = "Reset Password",
+                            isLoading = uiState.isSyncing,
+                            enabled = !uiState.isSyncing && otpCode.length >= 6 && newPassword.length >= 6,
+                            onClick = {
+                                com.getfit.ui.util.InputSanitizer.validatePassword(newPassword, isSignUp = true)?.let {
+                                    errorMessage = it
+                                    return@GfPrimaryButton
+                                }
+                                errorMessage = null
+                                viewModel.resetPassword(email.trim(), otpCode.trim(), newPassword) { success, msg ->
+                                    if (success) {
+                                        isForgotPasswordMode = false
+                                        resetOtpSent = false
+                                        otpCode = ""
+                                        newPassword = ""
+                                        password = ""
+                                        errorMessage = null
+                                    } else {
+                                        errorMessage = msg
+                                    }
+                                }
+                            }
+                        )
+
+                        if (countdownSeconds > 0) {
+                            Text(
+                                text = "Resend code in ${countdownSeconds}s",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GetFitTheme.colors.textTertiary
+                            )
+                        } else {
+                            GfTextButton(
+                                text = "Resend Code",
+                                enabled = !uiState.isSyncing,
+                                onClick = {
+                                    viewModel.sendOtp(email.trim(), purpose = "reset") { success, msg ->
+                                        if (success) {
+                                            resendAttempts++
+                                        } else {
+                                            errorMessage = msg
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    GfTextButton(
+                        text = "Back to Log In",
+                        color = GetFitTheme.colors.textSecondary,
+                        onClick = {
+                            isForgotPasswordMode = false
+                            resetOtpSent = false
+                            otpCode = ""
+                            newPassword = ""
+                            errorMessage = null
+                        }
+                    )
+                }
+            } else if (!isSignUpMode) {
                 // LOG IN FORM
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -196,8 +355,15 @@ fun AuthScreen(
                 ) {
                     GfTextField(
                         value = email,
-                        onValueChange = { email = it; errorMessage = null },
-                        label = "Email Address",
+                        onValueChange = { raw ->
+                            val sanitized = com.getfit.ui.util.InputSanitizer.sanitizeEmailInput(raw)
+                            email = sanitized
+                            errorMessage = if (sanitized != raw.lowercase()) {
+                                "Spaces, emojis, and unsupported characters are not allowed in email."
+                            } else null
+                        },
+                        label = "Gmail Address",
+                        placeholder = "example@gmail.com",
                         leadingIcon = Icons.Default.Email,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                         modifier = Modifier.fillMaxWidth()
@@ -232,15 +398,27 @@ fun AuthScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Spacer(modifier = Modifier.height(Dimens.xs))
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
+                        GfTextButton(
+                            text = "Forgot Password?",
+                            onClick = {
+                                isForgotPasswordMode = true
+                                resetOtpSent = false
+                                errorMessage = null
+                            }
+                        )
+                    }
 
                     GfPrimaryButton(
                         text = "Log In",
                         isLoading = uiState.isSyncing,
                         enabled = !uiState.isSyncing && email.isNotBlank() && password.isNotBlank(),
                         onClick = {
-                            if (email.isBlank() || !email.contains("@")) {
-                                errorMessage = "Please enter a valid email address."
+                            com.getfit.ui.util.InputSanitizer.validateEmail(email)?.let {
+                                errorMessage = it
                                 return@GfPrimaryButton
                             }
                             com.getfit.ui.util.InputSanitizer.validatePassword(password, isSignUp = false)?.let {
@@ -281,8 +459,15 @@ fun AuthScreen(
 
                         GfTextField(
                             value = email,
-                            onValueChange = { email = it; errorMessage = null },
-                            label = "Email Address",
+                            onValueChange = { raw ->
+                                val sanitized = com.getfit.ui.util.InputSanitizer.sanitizeEmailInput(raw)
+                                email = sanitized
+                                errorMessage = if (sanitized != raw.lowercase()) {
+                                    "Spaces, emojis, and unsupported characters are not allowed in email."
+                                } else null
+                            },
+                            label = "Gmail Address",
+                            placeholder = "example@gmail.com",
                             leadingIcon = Icons.Default.Email,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                             modifier = Modifier.fillMaxWidth()
@@ -329,8 +514,8 @@ fun AuthScreen(
                                     errorMessage = it
                                     return@GfPrimaryButton
                                 }
-                                if (trimmedEmail.isBlank() || !trimmedEmail.contains("@")) {
-                                    errorMessage = "Please enter a valid email address."
+                                com.getfit.ui.util.InputSanitizer.validateEmail(trimmedEmail)?.let {
+                                    errorMessage = it
                                     return@GfPrimaryButton
                                 }
                                 if (AuthService.isDisposableEmail(trimmedEmail)) {

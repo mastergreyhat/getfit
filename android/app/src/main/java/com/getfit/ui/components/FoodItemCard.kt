@@ -22,9 +22,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.getfit.data.entity.FoodItem
+import com.getfit.ui.components.core.pressable
 import com.getfit.ui.theme.GetFitTheme
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FoodItemCard(
     food: FoodItem,
@@ -34,20 +34,14 @@ fun FoodItemCard(
     onLongClick: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null
 ) {
-    val clickModifier = if (onLongClick != null) {
-        Modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = onLongClick
-        )
-    } else {
-        Modifier.clickable(onClick = onClick)
-    }
+    val shape = RoundedCornerShape(16.dp)
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .then(clickModifier),
+            .clip(shape)
+            .pressable(onClick = onClick, onLongClick = onLongClick),
+        shape = shape,
         colors = CardDefaults.cardColors(
             containerColor = GetFitTheme.colors.surface1
         ),

@@ -107,11 +107,12 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
             }
         }
 
-        // Observe AppDateManager.selectedDate changes and observe logs for that date
+        // Observe AppDateManager.selectedDate changes and observe logs + date-scoped routine for that date
         viewModelScope.launch {
             AppDateManager.selectedDate.collect { date ->
                 val label = AppDateManager.getDateDisplayLabel(date)
                 _uiState.update { it.copy(selectedDate = date, dateDisplayLabel = label) }
+                refreshCustomizedPlan(date)
                 observeDateWorkoutLogs(date)
             }
         }
@@ -191,10 +192,13 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    private fun resolvePlanWithCustomRoutines(plan: WorkoutPlan): WorkoutPlan {
+    private fun resolvePlanWithCustomRoutines(
+        plan: WorkoutPlan,
+        date: String = AppDateManager.selectedDate.value
+    ): WorkoutPlan {
         val context = getApplication<Application>().applicationContext
         val customizedDays = plan.days.map { day ->
-            val custom = CustomRoutinePreferences.getCustomExercises(context, plan.name, day.dayName)
+            val custom = CustomRoutinePreferences.getCustomExercises(context, plan.name, day.dayName, date)
             if (custom != null) {
                 day.copy(exercises = custom)
             } else {
@@ -224,14 +228,16 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
             restSeconds = 90,
             notes = notes.trim()
         )
+        val date = _uiState.value.selectedDate
         CustomRoutinePreferences.addExerciseToDay(
             context = context,
             planName = currentPlan.name,
             dayName = selectedDay.dayName,
             defaultExercises = defaultExercises,
-            newExercise = newPlanned
+            newExercise = newPlanned,
+            date = date
         )
-        refreshCustomizedPlan()
+        refreshCustomizedPlan(date)
     }
 
     fun removeExerciseFromTodayWorkout(exerciseName: String) {
@@ -242,6 +248,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         val defaultExercises = basePlan.days.find { it.dayName.equals(selectedDay.dayName, ignoreCase = true) }?.exercises ?: emptyList()
 
         val context = getApplication<Application>().applicationContext
+        val date = _uiState.value.selectedDate
         val matchedPlanned = selectedDay.exercises.find { it.exerciseName.equals(exerciseName, ignoreCase = true) }
 
         CustomRoutinePreferences.removeExerciseFromDay(
@@ -249,7 +256,8 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
             planName = currentPlan.name,
             dayName = selectedDay.dayName,
             defaultExercises = defaultExercises,
-            exerciseName = exerciseName
+            exerciseName = exerciseName,
+            date = date
         )
 
         // Move to Trash (10-day retention)
@@ -262,11 +270,12 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
                     put("sets", matchedPlanned?.sets ?: 3)
                     put("reps", matchedPlanned?.reps ?: "8-10")
                     put("notes", matchedPlanned?.notes ?: "")
+                    put("date", date)
                 }
                 repository.moveToTrash(
                     itemType = "Routine Exercise",
                     title = exerciseName,
-                    subtitle = "${selectedDay.dayName} (${currentPlan.name})",
+                    subtitle = "${selectedDay.dayName} (${currentPlan.name}) • $date",
                     dataJson = dataObj.toString()
                 )
             } catch (e: Exception) {
@@ -274,7 +283,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
             }
         }
 
-        refreshCustomizedPlan()
+        refreshCustomizedPlan(date)
     }
 
     fun modifyExerciseInTodayWorkout(
@@ -290,6 +299,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         val defaultExercises = basePlan.days.find { it.dayName.equals(selectedDay.dayName, ignoreCase = true) }?.exercises ?: emptyList()
 
         val context = getApplication<Application>().applicationContext
+        val date = _uiState.value.selectedDate
         val updated = PlannedExercise(
             exerciseName = exerciseName.trim(),
             sets = sets,
@@ -302,24 +312,26 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
             planName = currentPlan.name,
             dayName = selectedDay.dayName,
             defaultExercises = defaultExercises,
-            updatedExercise = updated
+            updatedExercise = updated,
+            date = date
         )
-        refreshCustomizedPlan()
+        refreshCustomizedPlan(date)
     }
 
     fun resetTodayWorkoutToDefault() {
         val currentPlan = _uiState.value.currentPlan
         val selectedDay = currentPlan.days.getOrNull(_uiState.value.selectedDayIndex) ?: return
         val context = getApplication<Application>().applicationContext
-        CustomRoutinePreferences.resetDayToDefault(context, currentPlan.name, selectedDay.dayName)
-        refreshCustomizedPlan()
+        val date = _uiState.value.selectedDate
+        CustomRoutinePreferences.resetDayToDefault(context, currentPlan.name, selectedDay.dayName, date)
+        refreshCustomizedPlan(date)
     }
 
-    private fun refreshCustomizedPlan() {
+    private fun refreshCustomizedPlan(date: String = _uiState.value.selectedDate) {
         val currentPlan = _uiState.value.currentPlan
         val basePlan = WorkoutPlans.getAllPlans().find { it.name.equals(currentPlan.name, ignoreCase = true) }
             ?: WorkoutPlans.getPPLPlan()
-        val updatedPlan = resolvePlanWithCustomRoutines(basePlan)
+        val updatedPlan = resolvePlanWithCustomRoutines(basePlan, date)
         _uiState.update { it.copy(currentPlan = updatedPlan) }
     }
 

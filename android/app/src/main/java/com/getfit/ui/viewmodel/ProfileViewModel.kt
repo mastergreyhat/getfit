@@ -202,6 +202,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             }
 
             _uiState.update { it.copy(profile = updatedProfile, calculatedNutrition = calc, isSavedSuccess = true) }
+            CloudSyncManager.triggerSilentUpload(getApplication(), repository)
         }
     }
 
@@ -245,6 +246,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                     val sets = json.optInt("sets", 3)
                     val reps = json.optString("reps", "8-10")
                     val notes = json.optString("notes", "")
+                    val date = json.optString("date", com.getfit.ui.util.AppDateManager.selectedDate.value)
                     val basePlan = WorkoutPlans.getAllPlans().find { it.name.equals(planName, ignoreCase = true) }
                         ?: WorkoutPlans.getPPLPlan()
                     val defaultExercises = basePlan.days.find { it.dayName.equals(dayName, ignoreCase = true) }?.exercises ?: emptyList()
@@ -254,7 +256,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         planName = planName,
                         dayName = dayName,
                         defaultExercises = defaultExercises,
-                        newExercise = PlannedExercise(exerciseName, sets, reps, 90, notes)
+                        newExercise = PlannedExercise(exerciseName, sets, reps, 90, notes),
+                        date = date
                     )
                     repository.deleteTrashItem(item)
                     onComplete?.invoke(true)
@@ -383,10 +386,10 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun sendOtp(email: String, onResult: (Boolean, String) -> Unit) {
+    fun sendOtp(email: String, purpose: String = "register", onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             _uiState.update { it.copy(isSyncing = true) }
-            val res = AuthService.sendOtp(email)
+            val res = AuthService.sendOtp(email, purpose)
             _uiState.update { it.copy(isSyncing = false) }
             res.fold(
                 onSuccess = { msg ->
@@ -395,6 +398,18 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 onFailure = { err ->
                     onResult(false, err.message ?: "Failed to send verification code.")
                 }
+            )
+        }
+    }
+
+    fun resetPassword(email: String, otp: String, newPassword: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSyncing = true) }
+            val res = AuthService.resetPassword(email, otp, newPassword)
+            _uiState.update { it.copy(isSyncing = false) }
+            res.fold(
+                onSuccess = { msg -> onResult(true, msg) },
+                onFailure = { err -> onResult(false, err.message ?: "Failed to reset password.") }
             )
         }
     }
@@ -473,6 +488,36 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             loadTrash()
             loadMealSchedules()
             onResult()
+        }
+    }
+
+    fun deleteAccount(confirmEmail: String, onResult: (Boolean, String) -> Unit) {
+        val app = getApplication<Application>()
+        val token = AuthPreferences.getToken(app)
+        if (token.isNullOrBlank()) {
+            onResult(false, "You must be signed in to delete your account.")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSyncing = true) }
+            val result = AuthService.deleteAccount(token, confirmEmail)
+            result.fold(
+                onSuccess = {
+                    CloudSyncManager.clearLocalUserData(app, repository)
+                    AuthPreferences.clearSession(app)
+                    OnboardingPreferences.setOnboardingCompleted(app, false)
+                    refreshAuthState()
+                    loadProfile()
+                    loadTrash()
+                    loadMealSchedules()
+                    _uiState.update { it.copy(isSyncing = false) }
+                    onResult(true, "Account and cloud data deleted.")
+                },
+                onFailure = { err ->
+                    _uiState.update { it.copy(isSyncing = false) }
+                    onResult(false, err.message ?: "Failed to delete account.")
+                }
+            )
         }
     }
 

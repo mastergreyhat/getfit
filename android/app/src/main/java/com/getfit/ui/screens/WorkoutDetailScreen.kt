@@ -440,15 +440,9 @@ fun WorkoutDetailScreen(
                 text = "Complete & Save Session",
                 onClick = {
                     val completed = sets.filter { (it.reps.toIntOrNull() ?: 0) > 0 }
-                    var volume = 0.0
-                    var hasPr = false
                     val setsPayload = completed.map { completedSet ->
                         val w = completedSet.weight.toDoubleOrNull() ?: 0.0
                         val r = completedSet.reps.toIntOrNull() ?: 0
-                        volume += (w * r)
-                        if (w > pbWeight && pbWeight > 0) {
-                            hasPr = true
-                        }
                         w to r
                     }
 
@@ -459,15 +453,7 @@ fun WorkoutDetailScreen(
                         notes = notes,
                         setsData = setsPayload
                     )
-
-                    if (completed.isNotEmpty()) {
-                        totalVolumeCalculated = volume
-                        completedSetsCount = completed.size
-                        isNewPR = hasPr
-                        showSummaryDialog = true
-                    } else {
-                        onNavigateBack()
-                    }
+                    onNavigateBack()
                 }
             )
         }
