@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +49,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -92,8 +94,9 @@ fun FoodScreen(
     onNavigateToAddCustomFood: () -> Unit,
     onNavigateToAuth: () -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val selectedTab by viewModel.currentTab.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val selectedTab by viewModel.currentTab.collectAsStateWithLifecycle()
+    val diaryScrollTarget by viewModel.diaryScrollTarget.collectAsStateWithLifecycle()
     val tabs = listOf("Diary", "Search & Add", "Meal Plans")
 
     var selectedFoodForDialog by remember { mutableStateOf<FoodItem?>(null) }
@@ -320,14 +323,11 @@ fun FoodScreen(
             }
         }
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
             // Pinned Segmented Control
             Box(
                 modifier = Modifier
@@ -377,7 +377,7 @@ fun FoodScreen(
                         }
                     },
                     onEditWaterTarget = { showWaterTargetDialog = true },
-                    diaryScrollTarget = viewModel.diaryScrollTarget.collectAsState().value,
+                    diaryScrollTarget = diaryScrollTarget,
                     onConsumeDiaryScrollTarget = viewModel::consumeDiaryScrollTarget
                 )
                 1 -> LogFoodTabContent(
@@ -412,10 +412,6 @@ fun FoodScreen(
                     onNavigateToAuth = onNavigateToAuth
                 )
             }
-            }
-            com.getfit.ui.components.core.GfBottomFade(
-                modifier = Modifier.align(Alignment.BottomCenter)
-            )
         }
     }
 }
@@ -1141,7 +1137,7 @@ private fun LogFoodTabContent(
                             contentDescription = null,
                             modifier = Modifier
                                 .size(20.dp)
-                                .alpha(iconAlpha),
+                                .graphicsLayer { alpha = iconAlpha },
                             tint = GetFitTheme.colors.accent
                         )
                     } else {
@@ -1197,7 +1193,11 @@ private fun LogFoodTabContent(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                itemsIndexed(uiState.onlineSearchResults, key = { idx, food -> "online_${food.name}_${food.source}_$idx" }) { _, food ->
+                itemsIndexed(
+                    uiState.onlineSearchResults,
+                    key = { idx, food -> "online_${food.name}_${food.source}_$idx" },
+                    contentType = { _, _ -> "food_item" }
+                ) { _, food ->
                     FoodItemCard(
                         food = food,
                         onClick = { onFoodSelected(food, true) },
@@ -1221,7 +1221,11 @@ private fun LogFoodTabContent(
                         )
                     }
                 }
-                itemsIndexed(uiState.searchResults, key = { idx, food -> "local_${food.id}_${food.name}_$idx" }) { _, food ->
+                itemsIndexed(
+                    uiState.searchResults,
+                    key = { idx, food -> "local_${food.id}_${food.name}_$idx" },
+                    contentType = { _, _ -> "food_item" }
+                ) { _, food ->
                     FoodItemCard(
                         food = food,
                         onClick = { onFoodSelected(food, false) },
@@ -2154,7 +2158,9 @@ private fun CopyYesterdayMealsDialog(
         }
     }
 
-    val selectedCount = summaries.filter { selectedMeals[it.mealType] == true }.sumOf { it.itemsCount }
+    val selectedCount = remember(summaries, selectedMeals.toMap()) {
+        summaries.filter { selectedMeals[it.mealType] == true }.sumOf { it.itemsCount }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         GfCard(
@@ -2271,7 +2277,9 @@ private fun CopyYesterdayMealsDialog(
                         softWrap = false
                     )
 
-                    val allSelected = summaries.filter { it.itemsCount > 0 }.all { selectedMeals[it.mealType] == true }
+                    val allSelected = remember(summaries, selectedMeals.toMap()) {
+                        summaries.filter { it.itemsCount > 0 }.all { selectedMeals[it.mealType] == true }
+                    }
                     GfTextButton(
                         text = if (allSelected) "Deselect All" else "Select All",
                         onClick = {

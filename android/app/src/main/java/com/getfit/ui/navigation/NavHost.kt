@@ -1,8 +1,14 @@
 package com.getfit.ui.navigation
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -21,6 +27,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,10 +40,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,8 +59,10 @@ import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.getfit.R
 import com.getfit.ui.components.core.GfBottomBar
+import com.getfit.ui.components.core.GfBottomFade
 import com.getfit.ui.components.core.GfBottomNavItem
 import com.getfit.ui.components.core.GfBrandLogo
+import com.getfit.ui.components.core.GfScreenSurface
 import com.getfit.ui.components.core.pressable
 import com.getfit.ui.screens.*
 import com.getfit.ui.theme.Dimens
@@ -161,145 +173,182 @@ fun GetFitNavHost(
                     detectTapGestures(onTap = { focusManager.clearFocus() })
                 }
         ) {
+            val detailSlidePx = with(LocalDensity.current) { 16.dp.roundToPx() }
             NavHost(
                 navController = navController,
                 startDestination = startDestination,
-                enterTransition = { fadeIn(animationSpec = tween(150)) },
-                exitTransition = { fadeOut(animationSpec = tween(120)) },
-                popEnterTransition = { fadeIn(animationSpec = tween(150)) },
-                popExitTransition = { fadeOut(animationSpec = tween(120)) },
+                enterTransition = {
+                    fadeIn(tween(100, delayMillis = 50, easing = LinearOutSlowInEasing))
+                },
+                exitTransition = {
+                    fadeOut(tween(50, easing = FastOutLinearInEasing))
+                },
+                popEnterTransition = {
+                    fadeIn(tween(100, delayMillis = 50, easing = LinearOutSlowInEasing))
+                },
+                popExitTransition = {
+                    fadeOut(tween(50, easing = FastOutLinearInEasing))
+                },
                 modifier = Modifier.fillMaxSize()
             ) {
             composable(Screen.OnboardingWelcome.route) {
-                OnboardingWelcomeScreen(
-                    onNext = {
-                        navController.navigate(Screen.Auth.route)
-                    }
-                )
+                GfScreenSurface {
+                    OnboardingWelcomeScreen(
+                        onNext = {
+                            navController.navigate(Screen.Auth.route)
+                        }
+                    )
+                }
             }
 
             composable(Screen.Auth.route) {
                 val profileViewModel: ProfileViewModel = viewModel()
                 val canGoBack = navController.previousBackStackEntry != null && 
                     navController.previousBackStackEntry?.destination?.route != Screen.OnboardingWelcome.route
-                AuthScreen(
-                    viewModel = profileViewModel,
-                    onAuthSuccess = { isNewUser ->
-                        if (isNewUser) {
+                GfScreenSurface {
+                    AuthScreen(
+                        viewModel = profileViewModel,
+                        onAuthSuccess = { isNewUser ->
+                            if (isNewUser) {
+                                navController.navigate(Screen.OnboardingProfile.route) {
+                                    popUpTo(Screen.OnboardingWelcome.route) { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                            } else {
+                                navController.navigate(Screen.Dashboard.route) {
+                                    popUpTo(Screen.OnboardingWelcome.route) { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                            }
+                        },
+                        onContinueWithoutSignIn = {
                             navController.navigate(Screen.OnboardingProfile.route) {
-                                popUpTo(Screen.OnboardingWelcome.route) { inclusive = true }
+                                popUpTo(Screen.Auth.route) { inclusive = true }
                                 launchSingleTop = true
                             }
-                        } else {
-                            navController.navigate(Screen.Dashboard.route) {
-                                popUpTo(Screen.OnboardingWelcome.route) { inclusive = true }
-                                launchSingleTop = true
-                            }
-                        }
-                    },
-                    onContinueWithoutSignIn = {
-                        navController.navigate(Screen.OnboardingProfile.route) {
-                            popUpTo(Screen.Auth.route) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    },
-                    onNavigateBack = if (canGoBack) {
-                        { navController.popBackStack() }
-                    } else null
-                )
+                        },
+                        onNavigateBack = if (canGoBack) {
+                            { navController.popBackStack() }
+                        } else null
+                    )
+                }
             }
 
             composable(Screen.OnboardingProfile.route) {
                 val profileViewModel: ProfileViewModel = viewModel()
-                OnboardingProfileScreen(
-                    viewModel = profileViewModel,
-                    onSaveAndContinue = {
-                        navController.navigate(Screen.Dashboard.route) {
-                            popUpTo(Screen.OnboardingWelcome.route) {
-                                inclusive = true
+                GfScreenSurface {
+                    OnboardingProfileScreen(
+                        viewModel = profileViewModel,
+                        onSaveAndContinue = {
+                            navController.navigate(Screen.Dashboard.route) {
+                                popUpTo(Screen.OnboardingWelcome.route) {
+                                    inclusive = true
+                                }
+                                launchSingleTop = true
                             }
-                            launchSingleTop = true
                         }
-                    }
-                )
+                    )
+                }
             }
 
             composable(Screen.Dashboard.route) {
-                DashboardScreen(
-                    viewModel = dashboardViewModel,
-                    onNavigateToFood = {
-                        foodViewModel.resetToDiary()
-                        navController.navigate(Screen.Food.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
+                GfScreenSurface {
+                    DashboardScreen(
+                        viewModel = dashboardViewModel,
+                        onNavigateToFood = {
+                            foodViewModel.resetToDiary()
+                            navController.navigate(Screen.Food.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    onNavigateToHydration = {
-                        foodViewModel.navigateToHydration()
-                        navController.navigate(Screen.Food.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
+                        },
+                        onNavigateToHydration = {
+                            foodViewModel.navigateToHydration()
+                            navController.navigate(Screen.Food.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    onNavigateToWorkout = {
-                        workoutViewModel.resetToWorkoutTab()
-                        navController.navigate(Screen.Workout.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
+                        },
+                        onNavigateToWorkout = {
+                            workoutViewModel.resetToWorkoutTab()
+                            navController.navigate(Screen.Workout.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                            launchSingleTop = true
-                            restoreState = true
                         }
-                    }
-                )
+                    )
+                }
             }
 
-            composable(Screen.Analytics.route) {
+            composable(
+                route = Screen.Analytics.route,
+                enterTransition = { fadeIn(tween(160)) + slideInVertically(tween(160)) { detailSlidePx } },
+                exitTransition = { fadeOut(tween(90)) },
+                popEnterTransition = { fadeIn(tween(160)) },
+                popExitTransition = { fadeOut(tween(90)) + slideOutVertically(tween(90)) { detailSlidePx } }
+            ) {
                 val analyticsViewModel: AnalyticsViewModel = viewModel()
-                AnalyticsScreen(
-                    viewModel = analyticsViewModel,
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    }
-                )
+                GfScreenSurface {
+                    AnalyticsScreen(
+                        viewModel = analyticsViewModel,
+                        onNavigateBack = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
             }
 
             composable(Screen.Food.route) {
-                FoodScreen(
-                    viewModel = foodViewModel,
-                    onNavigateToAddCustomFood = {
-                        navController.navigate(Screen.AddCustomFood.route)
-                    },
-                    onNavigateToAuth = {
-                        navController.navigate(Screen.Auth.route)
-                    }
-                )
+                GfScreenSurface {
+                    FoodScreen(
+                        viewModel = foodViewModel,
+                        onNavigateToAddCustomFood = {
+                            navController.navigate(Screen.AddCustomFood.route)
+                        },
+                        onNavigateToAuth = {
+                            navController.navigate(Screen.Auth.route)
+                        }
+                    )
+                }
             }
 
-            composable(Screen.AddCustomFood.route) {
-                AddCustomFoodScreen(
-                    viewModel = foodViewModel,
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    }
-                )
+            composable(
+                route = Screen.AddCustomFood.route,
+                enterTransition = { fadeIn(tween(160)) + slideInVertically(tween(160)) { detailSlidePx } },
+                exitTransition = { fadeOut(tween(90)) },
+                popEnterTransition = { fadeIn(tween(160)) },
+                popExitTransition = { fadeOut(tween(90)) + slideOutVertically(tween(90)) { detailSlidePx } }
+            ) {
+                GfScreenSurface {
+                    AddCustomFoodScreen(
+                        viewModel = foodViewModel,
+                        onNavigateBack = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
             }
 
             composable(Screen.Workout.route) {
-                WorkoutScreen(
-                    viewModel = workoutViewModel,
-                    onNavigateToWorkoutDetail = { id, name, muscle, sets, reps, dayName ->
-                        navController.navigate(
-                            Screen.WorkoutDetail.createRoute(id, name, muscle, sets, reps, dayName)
-                        )
-                    }
-                )
+                GfScreenSurface {
+                    WorkoutScreen(
+                        viewModel = workoutViewModel,
+                        onNavigateToWorkoutDetail = { id, name, muscle, sets, reps, dayName ->
+                            navController.navigate(
+                                Screen.WorkoutDetail.createRoute(id, name, muscle, sets, reps, dayName)
+                            )
+                        }
+                    )
+                }
             }
 
             composable(
@@ -311,7 +360,11 @@ fun GetFitNavHost(
                     navArgument("sets") { type = NavType.IntType },
                     navArgument("reps") { type = NavType.StringType },
                     navArgument("dayName") { type = NavType.StringType }
-                )
+                ),
+                enterTransition = { fadeIn(tween(160)) + slideInVertically(tween(160)) { detailSlidePx } },
+                exitTransition = { fadeOut(tween(90)) },
+                popEnterTransition = { fadeIn(tween(160)) },
+                popExitTransition = { fadeOut(tween(90)) + slideOutVertically(tween(90)) { detailSlidePx } }
             ) { backStackEntry ->
                 val exerciseId = backStackEntry.arguments?.getLong("exerciseId") ?: 0L
                 val exerciseNameRaw = backStackEntry.arguments?.getString("exerciseName") ?: ""
@@ -325,92 +378,67 @@ fun GetFitNavHost(
                 val reps = URLDecoder.decode(repsRaw, StandardCharsets.UTF_8.toString())
                 val dayName = URLDecoder.decode(dayNameRaw, StandardCharsets.UTF_8.toString())
 
-                WorkoutDetailScreen(
-                    exerciseId = exerciseId,
-                    exerciseName = exerciseName,
-                    muscleGroup = muscleGroup,
-                    targetSets = sets,
-                    targetReps = reps,
-                    workoutPlanDay = dayName,
-                    viewModel = workoutViewModel,
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    }
-                )
+                GfScreenSurface {
+                    WorkoutDetailScreen(
+                        exerciseId = exerciseId,
+                        exerciseName = exerciseName,
+                        muscleGroup = muscleGroup,
+                        targetSets = sets,
+                        targetReps = reps,
+                        workoutPlanDay = dayName,
+                        viewModel = workoutViewModel,
+                        onNavigateBack = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
             }
 
             composable(Screen.Profile.route) {
-                ProfileScreen(
-                    viewModel = profileViewModel,
-                    onNavigateToAuth = {
-                        navController.navigate(Screen.Auth.route)
-                    },
-                    onLogout = {
-                        navController.navigate(Screen.OnboardingWelcome.route) {
-                            popUpTo(0) { inclusive = true }
-                            launchSingleTop = true
+                GfScreenSurface {
+                    ProfileScreen(
+                        viewModel = profileViewModel,
+                        onNavigateToAuth = {
+                            navController.navigate(Screen.Auth.route)
+                        },
+                        onLogout = {
+                            navController.navigate(Screen.OnboardingWelcome.route) {
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
 
         if (isBottomBarVisible) {
-            if (currentRoute != Screen.Food.route && currentRoute != Screen.Workout.route) {
-                // Non-interactive gradient fade: transparent to background, 140dp tall; Food/Workout render it below their FABs
-                com.getfit.ui.components.core.GfBottomFade(
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                )
-            }
+            GfBottomFade(modifier = Modifier.align(Alignment.BottomCenter))
 
-            val selectedIndex = bottomNavItems.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
+            val haptic = LocalHapticFeedback.current
+            val routeIndex = bottomNavItems.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
+            var pendingIndex by remember { mutableStateOf<Int?>(null) }
+            LaunchedEffect(currentRoute) {
+                if (pendingIndex != null && routeIndex == pendingIndex) {
+                    pendingIndex = null
+                }
+            }
+            val selectedIndex = pendingIndex ?: routeIndex
+
             GfBottomBar(
                 items = gfBottomNavItems,
                 selectedIndex = selectedIndex,
                 onItemSelected = { index ->
                     val screen = bottomNavItems[index]
-                    if (screen.route == Screen.Dashboard.route) {
-                        if (currentRoute != Screen.Dashboard.route) {
-                            val popped = navController.popBackStack(Screen.Dashboard.route, inclusive = false)
-                            if (!popped) {
-                                navController.navigate(Screen.Dashboard.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        inclusive = false
-                                    }
-                                    launchSingleTop = true
-                                }
-                            }
+                    if (index == selectedIndex || currentRoute == screen.route) return@GfBottomBar
+                    pendingIndex = index
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    navController.navigate(screen.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
                         }
-                    } else if (screen.route == Screen.Food.route) {
-                        foodViewModel.resetToDiary()
-                        if (currentRoute != Screen.Food.route) {
-                            navController.navigate(Screen.Food.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    } else if (screen.route == Screen.Workout.route) {
-                        workoutViewModel.resetToWorkoutTab()
-                        if (currentRoute != Screen.Workout.route) {
-                            navController.navigate(Screen.Workout.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    } else if (currentRoute != screen.route) {
-                        navController.navigate(screen.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        launchSingleTop = true
+                        restoreState = true
                     }
                 },
                 modifier = Modifier.align(Alignment.BottomCenter)
@@ -441,23 +469,36 @@ private fun CleanTopHeader(
             modifier = Modifier
                 .statusBarsPadding()
                 .fillMaxWidth()
-                .height(52.dp)
+                .height(64.dp)
                 .padding(horizontal = Dimens.screenGutter),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (isHome) {
-                GfBrandLogo(
-                    iconSize = 30.dp,
-                    textStyle = MaterialTheme.typography.titleLarge
-                )
-            } else {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = GetFitTheme.colors.textPrimary
-                )
+            AnimatedContent(
+                targetState = currentRoute,
+                transitionSpec = { fadeIn(tween(80, delayMillis = 40)) togetherWith fadeOut(tween(60)) },
+                label = "header_title"
+            ) { route ->
+                val routeIsHome = route == Screen.Dashboard.route || route == null
+                val routeTitle = when (route) {
+                    Screen.Food.route -> "Nutrition"
+                    Screen.Workout.route -> "Training"
+                    Screen.Profile.route -> "Profile"
+                    else -> "Home"
+                }
+                if (routeIsHome) {
+                    GfBrandLogo(
+                        iconSize = 30.dp,
+                        textStyle = MaterialTheme.typography.titleLarge
+                    )
+                } else {
+                    Text(
+                        text = routeTitle,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = GetFitTheme.colors.textPrimary
+                    )
+                }
             }
 
             Box(

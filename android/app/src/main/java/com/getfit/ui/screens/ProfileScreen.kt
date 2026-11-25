@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Email
 import kotlinx.coroutines.launch
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -90,7 +91,7 @@ fun ProfileScreen(
     onNavigateToAuth: () -> Unit = {},
     onLogout: () -> Unit = onNavigateToAuth
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val profile = uiState.profile
 
     var name by remember(profile.name) { mutableStateOf(profile.name) }
@@ -154,7 +155,7 @@ fun ProfileScreen(
     var snackbarMessage by remember { mutableStateOf("Profile and Targets Saved Successfully!") }
 
     var showAvatarPicker by remember { mutableStateOf(false) }
-    val avatarUpdateTrigger by AvatarManager.avatarUpdates.collectAsState()
+    val avatarUpdateTrigger by AvatarManager.avatarUpdates.collectAsStateWithLifecycle()
     val currentAvatar = remember(avatarUpdateTrigger) { AvatarManager.getSelectedAvatar(context) }
     val bestStreak = remember(avatarUpdateTrigger) { StreakManager.getBestStreak(context) }
 

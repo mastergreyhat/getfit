@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -37,23 +38,25 @@ fun GfCard(
     val baseSurface = GetFitTheme.colors.surface1
     val isDark = GetFitTheme.colors.isDark
 
-    val backgroundBrush = if (useGradient) {
-        val lighterSurface = if (isDark) {
-            baseSurface.copy(
-                red = (baseSurface.red + 0.03f).coerceAtMost(1f),
-                green = (baseSurface.green + 0.03f).coerceAtMost(1f),
-                blue = (baseSurface.blue + 0.03f).coerceAtMost(1f)
-            )
+    val backgroundBrush = remember(baseSurface, isDark, useGradient) {
+        if (useGradient) {
+            val lighterSurface = if (isDark) {
+                baseSurface.copy(
+                    red = (baseSurface.red + 0.03f).coerceAtMost(1f),
+                    green = (baseSurface.green + 0.03f).coerceAtMost(1f),
+                    blue = (baseSurface.blue + 0.03f).coerceAtMost(1f)
+                )
+            } else {
+                baseSurface.copy(
+                    red = (baseSurface.red - 0.02f).coerceAtLeast(0f),
+                    green = (baseSurface.green - 0.02f).coerceAtLeast(0f),
+                    blue = (baseSurface.blue - 0.02f).coerceAtLeast(0f)
+                )
+            }
+            Brush.verticalGradient(listOf(baseSurface, lighterSurface))
         } else {
-            baseSurface.copy(
-                red = (baseSurface.red - 0.02f).coerceAtLeast(0f),
-                green = (baseSurface.green - 0.02f).coerceAtLeast(0f),
-                blue = (baseSurface.blue - 0.02f).coerceAtLeast(0f)
-            )
+            Brush.verticalGradient(listOf(baseSurface, baseSurface))
         }
-        Brush.verticalGradient(listOf(baseSurface, lighterSurface))
-    } else {
-        Brush.verticalGradient(listOf(baseSurface, baseSurface))
     }
 
     Box(
@@ -87,19 +90,20 @@ fun GfHeroCard(
     val shape = RoundedCornerShape(cornerRadius)
     val baseSurface = GetFitTheme.colors.surface1
     val accentGlow = GetFitTheme.colors.accent.copy(alpha = 0.04f)
+    val glowBrush = remember(accentGlow) {
+        Brush.radialGradient(
+            colors = listOf(accentGlow, Color.Transparent),
+            center = Offset(Float.POSITIVE_INFINITY, 0f),
+            radius = 450f
+        )
+    }
 
     Box(
         modifier = modifier
             .then(if (onClick != null) Modifier.pressable(onClick = onClick) else Modifier)
             .clip(shape)
             .background(baseSurface)
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(accentGlow, Color.Transparent),
-                    center = Offset(Float.POSITIVE_INFINITY, 0f),
-                    radius = 450f
-                )
-            )
+            .background(glowBrush)
             .border(BorderStroke(1.dp, GetFitTheme.colors.hairline), shape)
             .padding(contentPadding)
     ) {

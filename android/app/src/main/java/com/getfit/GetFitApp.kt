@@ -9,9 +9,15 @@ import androidx.work.WorkManager
 import com.getfit.data.sync.DailySyncWorker
 import com.getfit.notification.MealReminderWorker
 import com.getfit.notification.NotificationHelper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 class GetFitApp : Application() {
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -24,12 +30,12 @@ class GetFitApp : Application() {
         // Initialize Notification Channels
         NotificationHelper.createNotificationChannels(this)
 
-        // Schedule Exact On-Time Reminders via AlarmManager
-        com.getfit.notification.AlarmScheduler.rescheduleAll(this)
-
-        // Keep WorkManager as fallback
-        scheduleBackgroundReminders()
-        scheduleBackgroundSync()
+        // Defer alarm & WorkManager scheduling off the main thread so first frame isn't blocked
+        appScope.launch {
+            com.getfit.notification.AlarmScheduler.rescheduleAll(this@GetFitApp)
+            scheduleBackgroundReminders()
+            scheduleBackgroundSync()
+        }
     }
 
     private fun scheduleBackgroundReminders() {

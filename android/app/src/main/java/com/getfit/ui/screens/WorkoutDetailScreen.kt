@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -50,8 +51,8 @@ fun WorkoutDetailScreen(
     viewModel: WorkoutViewModel,
     onNavigateBack: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val exerciseLogs by viewModel.getLogsForExercise(exerciseId).collectAsState(initial = emptyList())
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val exerciseLogs by viewModel.getLogsForExercise(exerciseId).collectAsStateWithLifecycle(initialValue = emptyList())
     val overloadInfo = uiState.overloadSuggestions[exerciseId]
     val pbWeight = uiState.personalBests[exerciseId] ?: 0.0
 

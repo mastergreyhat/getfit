@@ -57,7 +57,21 @@ fun Modifier.gfBottomBarPadding(): Modifier = composed {
 }
 
 /**
- * 140dp bottom fade scrim placed behind [GfBottomBar] (and behind screen FABs when used inside a Scaffold).
+ * Opaque screen root wrapper so no destination draws on a transparent root during transitions.
+ */
+@Composable
+fun GfScreenSurface(content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(GetFitTheme.colors.background)
+    ) {
+        content()
+    }
+}
+
+/**
+ * 140dp bottom fade scrim placed behind [GfBottomBar].
  */
 @Composable
 fun GfBottomFade(modifier: Modifier = Modifier) {
@@ -122,12 +136,12 @@ fun GfBottomBar(
 
                 val itemBgColor by animateColorAsState(
                     targetValue = if (isSelected) GetFitTheme.colors.surface3 else Color.Transparent,
-                    animationSpec = tween(durationMillis = 250),
+                    animationSpec = tween(durationMillis = 120),
                     label = "nav_item_bg"
                 )
                 val contentColor by animateColorAsState(
                     targetValue = if (isSelected) GetFitTheme.colors.accent else GetFitTheme.colors.textSecondary,
-                    animationSpec = tween(durationMillis = 250),
+                    animationSpec = tween(durationMillis = 120),
                     label = "nav_item_content"
                 )
 
@@ -135,7 +149,12 @@ fun GfBottomBar(
                     modifier = Modifier
                         .clip(CircleShape)
                         .background(itemBgColor)
-                        .pressable(onClick = { onItemSelected(index) })
+                        .pressable(
+                            haptic = false,
+                            pressedScale = 0.92f,
+                            pressDurationMs = 80,
+                            onClick = { onItemSelected(index) }
+                        )
                         .padding(horizontal = Dimens.lg, vertical = Dimens.sm),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(Dimens.xs)

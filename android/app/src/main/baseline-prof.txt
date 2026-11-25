@@ -1,0 +1,12 @@
+HSPLcom/getfit/GetFitApp;->onCreate()V
+HSPLcom/getfit/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLcom/getfit/ui/navigation/NavHostKt;->GetFitNavHost(Landroidx/compose/ui/Modifier;Landroidx/navigation/NavHostController;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/getfit/ui/screens/DashboardScreenKt;->DashboardScreen(Lcom/getfit/ui/viewmodel/DashboardViewModel;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)V
+HSPLcom/getfit/ui/screens/FoodScreenKt;->FoodScreen(Lcom/getfit/ui/viewmodel/FoodViewModel;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/getfit/ui/screens/WorkoutScreenKt;->WorkoutScreen(Lcom/getfit/ui/viewmodel/WorkoutViewModel;Lkotlin/jvm/functions/Function6;Landroidx/compose/runtime/Composer;I)V
+HSPLcom/getfit/ui/screens/ProfileScreenKt;->ProfileScreen(Lcom/getfit/ui/viewmodel/ProfileViewModel;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/getfit/ui/components/FoodItemCardKt;->FoodItemCard(Lcom/getfit/data/entity/FoodItem;ZLkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/getfit/ui/components/ExerciseCardKt;->ExerciseCard(Lcom/getfit/data/entity/Exercise;ZZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/getfit/ui/components/core/GfNavigationKt;->GfBottomBar(Ljava/util/List;ILkotlin/jvm/functions/Function1;Landroidx/compose/ui/Modifier;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/getfit/ui/components/core/GfCardKt;->GfCard(Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function0;Landroidx/compose/ui/unit/Dp;Landroidx/compose/foundation/layout/PaddingValues;ZLkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
+HSPLcom/getfit/ui/components/core/GfProgressKt;->GfRing(FLandroidx/compose/ui/Modifier;Landroidx/compose/ui/unit/Dp;Landroidx/compose/ui/unit/Dp;Landroidx/compose/ui/graphics/Color;ZLkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V

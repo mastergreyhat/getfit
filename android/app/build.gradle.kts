@@ -39,11 +39,18 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        create("benchmark") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
         }
     }
     compileOptions {
@@ -52,6 +59,14 @@ android {
     }
     kotlinOptions {
         jvmTarget = "1.8"
+        freeCompilerArgs += listOf(
+            "-P",
+            "plugin:androidx.compose.compiler.plugins.kotlin:reportsDestination=${project.layout.buildDirectory.get()}/compose_reports",
+            "-P",
+            "plugin:androidx.compose.compiler.plugins.kotlin:metricsDestination=${project.layout.buildDirectory.get()}/compose_reports",
+            "-P",
+            "plugin:androidx.compose.compiler.plugins.kotlin:experimentalStrongSkipping=true"
+        )
     }
     buildFeatures {
         compose = true
@@ -109,6 +124,10 @@ dependencies {
 
     // Core KTX
     implementation("androidx.core:core-ktx:1.12.0")
+
+    // Performance: ProfileInstaller + Immutable Collections
+    implementation("androidx.profileinstaller:profileinstaller:1.3.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.3.7")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

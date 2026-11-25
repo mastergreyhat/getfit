@@ -210,13 +210,10 @@ class FoodViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Search & Filter Foods with Typo-Tolerant Fuzzy Matching Engine (runs on background thread)
-        viewModelScope.launch(Dispatchers.Default) {
-            combine(_searchQuery, _selectedCategory, repository.getAllFoods()) { query, category, allFoods ->
-                Triple(query, category, allFoods)
-            }.catch { e ->
-                android.util.Log.e("FoodViewModel", "Error in searchFoods flow", e)
-            }.collect { (query, category, allFoods) ->
+        // Search & Filter Foods with 300ms debounce + Typo-Tolerant Fuzzy Matching Engine off main thread
+        viewModelScope.launch {
+            @OptIn(kotlinx.coroutines.FlowPreview::class)
+            combine(_searchQuery.debounce(300), _selectedCategory, repository.getAllFoods()) { query, category, allFoods ->
                 val trimmed = query.trim()
                 if (trimmed.isNotBlank()) {
                     val filteredByCategory = if (category != "All") {
@@ -224,16 +221,22 @@ class FoodViewModel(application: Application) : AndroidViewModel(application) {
                     } else {
                         allFoods
                     }
-                    val matched = FuzzySearchEngine.search(trimmed, filteredByCategory)
+                    val matched = FuzzySearchEngine.search(trimmed, filteredByCategory).take(50)
                     val suggestion = FuzzySearchEngine.getDidYouMeanSuggestion(trimmed, filteredByCategory)
-                    _uiState.update { it.copy(searchResults = matched, didYouMeanSuggestion = suggestion) }
+                    matched to suggestion
                 } else if (category != "All") {
-                    val filtered = allFoods.filter { it.category.equals(category, ignoreCase = true) }
-                    _uiState.update { it.copy(searchResults = filtered, didYouMeanSuggestion = null) }
+                    allFoods.filter { it.category.equals(category, ignoreCase = true) }.take(50) to null
                 } else {
-                    _uiState.update { it.copy(searchResults = allFoods, didYouMeanSuggestion = null) }
+                    allFoods.take(50) to null
                 }
             }
+                .flowOn(Dispatchers.Default)
+                .catch { e ->
+                    android.util.Log.e("FoodViewModel", "Error in searchFoods flow", e)
+                }
+                .collect { (results, suggestion) ->
+                    _uiState.update { it.copy(searchResults = results, didYouMeanSuggestion = suggestion) }
+                }
         }
 
         // Observe AppDateManager.selectedDate changes and observe logs/totals for that date

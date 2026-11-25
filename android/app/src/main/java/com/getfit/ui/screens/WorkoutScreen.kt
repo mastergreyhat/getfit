@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -126,8 +127,8 @@ fun WorkoutScreen(
     viewModel: WorkoutViewModel,
     onNavigateToWorkoutDetail: (exerciseId: Long, exerciseName: String, muscleGroup: String, sets: Int, reps: String, dayName: String) -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val selectedTab by viewModel.currentTab.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val selectedTab by viewModel.currentTab.collectAsStateWithLifecycle()
     val tabs = listOf("Workout", "All Exercises", "Progress & PBs")
 
     var showStopwatch by remember { mutableStateOf(false) }
@@ -582,14 +583,11 @@ fun WorkoutScreen(
             }
         }
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
             // Pinned Segmented Control
             Box(
                 modifier = Modifier
@@ -660,10 +658,6 @@ fun WorkoutScreen(
                     onDeleteStopwatchRecord = viewModel::deleteStopwatchRecord
                 )
             }
-            }
-            com.getfit.ui.components.core.GfBottomFade(
-                modifier = Modifier.align(Alignment.BottomCenter)
-            )
         }
     }
 }
@@ -1050,6 +1044,13 @@ private fun WorkoutProgressTab(
         uiState.stopwatchRecords.groupBy { it.title.trim().lowercase() }
             .mapValues { (_, records) -> records.maxOf { it.elapsedMillis } }
     }
+    val pbEntries = remember(uiState.personalBests) { uiState.personalBests.entries.toList() }
+    val exerciseNameById = remember(uiState.exercises, uiState.recentLogs) {
+        buildMap {
+            uiState.recentLogs.forEach { putIfAbsent(it.exerciseId, it.exerciseName) }
+            uiState.exercises.forEach { put(it.id, it.name) }
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -1177,10 +1178,12 @@ private fun WorkoutProgressTab(
                 )
             }
         } else {
-            itemsIndexed(uiState.personalBests.entries.toList(), key = { idx, entry -> "pb_${entry.key}_$idx" }) { _, entry ->
-                val exerciseName = uiState.exercises.find { it.id == entry.key }?.name
-                    ?: uiState.recentLogs.find { it.exerciseId == entry.key }?.exerciseName
-                    ?: "Exercise"
+            itemsIndexed(
+                pbEntries,
+                key = { idx, entry -> "pb_${entry.key}_$idx" },
+                contentType = { _, _ -> "personal_best" }
+            ) { _, entry ->
+                val exerciseName = exerciseNameById[entry.key] ?: "Exercise"
 
                 GfCard(
                     cornerRadius = Dimens.lg,

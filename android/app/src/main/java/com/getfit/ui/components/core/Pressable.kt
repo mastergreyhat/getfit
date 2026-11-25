@@ -34,6 +34,8 @@ import kotlinx.coroutines.delay
 fun Modifier.pressable(
     enabled: Boolean = true,
     haptic: Boolean = true,
+    pressedScale: Float = 0.97f,
+    pressDurationMs: Int? = null,
     onLongClick: (() -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ): Modifier = composed {
@@ -44,11 +46,15 @@ fun Modifier.pressable(
     val isPressed by interactionSource.collectIsPressedAsState()
 
     val scaleState = animateFloatAsState(
-        targetValue = if (isPressed) 0.97f else 1f,
-        animationSpec = spring(
-            dampingRatio = 0.75f,
-            stiffness = 500f
-        ),
+        targetValue = if (isPressed) pressedScale else 1f,
+        animationSpec = if (pressDurationMs != null) {
+            tween(durationMillis = pressDurationMs, easing = FastOutSlowInEasing)
+        } else {
+            spring(
+                dampingRatio = 0.75f,
+                stiffness = 500f
+            )
+        },
         label = "pressable_scale"
     )
 
@@ -94,22 +100,35 @@ fun Modifier.pressable(
 }
 
 /**
- * Entrance animation on first composition only:
- * Fades in and slides up 12dp, with [staggerIndex] * [staggerMs] delay over [durationMs].
- * Preserved via [rememberSaveable] so it does not replay on recomposition or tab revisits.
+ * Process-level gate so staggered entrance animations only run on first launch of the session.
+ */
+object EntranceGate {
+    var homePlayed = false
+}
+
+/**
+ * Entrance animation on first app launch only:
+ * Fades in and slides up 12dp, with [staggerIndex] * [staggerMs] delay (capped at 150ms).
+ * Once [EntranceGate.homePlayed] is true, renders immediately at final state.
  */
 @Composable
 fun Modifier.gfEntrance(
     staggerIndex: Int,
-    staggerMs: Long = 50L,
-    durationMs: Int = 350
+    staggerMs: Long = 30L,
+    durationMs: Int = 150
 ): Modifier {
+    val shouldAnimate = remember { !EntranceGate.homePlayed }
+    if (!shouldAnimate) return this
+
     var hasAppeared by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         if (!hasAppeared) {
-            delay(staggerIndex * staggerMs)
+            val clampedDelay = (staggerIndex.coerceIn(0, 5) * staggerMs).coerceAtMost(150L)
+            delay(clampedDelay)
             hasAppeared = true
+            delay(durationMs.toLong())
+            EntranceGate.homePlayed = true
         }
     }
 
